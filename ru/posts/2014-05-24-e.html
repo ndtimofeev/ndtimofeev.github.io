@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>All you need is love and little bit of LSD - e</title>
+        <link rel="stylesheet" type="text/css" href="../../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../../css/syntax.css" />
+    </head>
+    <body>
+        <div id="container">
+            <div id="header">
+                <div id="logo">
+                    <a href="../../">All you need is love and a little bit of LSD</a>
+                </div>
+                <!-- <div id="navigation"> -->
+                <!--     <a href="/about.html">About</a> -->
+                <!--     <a href="/contact.html">Contact</a> -->
+                <!--     <a href="/archive.html">Archive</a> -->
+                <!-- </div> -->
+            </div>
+
+            <div id="content">
+                <h1>e</h1>
+                <div class="info">
+    Posted on May 24, 2014 with tags: <a href="../../tags/haskell.html">haskell</a>.
+</div>
+
+<p>Четыре года назад, я радовался работе с бесконечными списками и вычислял e суммирую ряд Тейлора так.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">e <span class="fu">=</span> sum <span class="fu">$</span> map (\x <span class="ot">-&gt;</span> <span class="dv">1</span> <span class="fu">/</span> fac x) [<span class="dv">0</span><span class="fu">..</span>]
+    <span class="kw">where</span>
+        fac n <span class="fu">=</span> foldl (<span class="fu">*</span>) <span class="dv">1</span> [<span class="dv">1</span><span class="fu">..</span>n]
+        sum (x<span class="fu">:</span>xs) <span class="fu">=</span> sumtr (x<span class="fu">:</span>xs) <span class="dv">0</span>
+        sumtr (x<span class="fu">:</span>xs) acc
+            <span class="fu">|</span> (acc <span class="fu">==</span> acc <span class="fu">+</span> x) <span class="fu">=</span> acc
+            <span class="fu">|</span> otherwise <span class="fu">=</span> sumtr xs (x <span class="fu">+</span> acc)</code></pre>
+<p>Случайно найдя предыдущий сниппет и смахнув слезу умиления, я переписал суммирование уже со знанием стандартной библиотеки.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">e <span class="fu">=</span> sum <span class="fu">$</span> takeWhile (<span class="fu">/=</span><span class="dv">0</span>) <span class="fu">$</span> map (\v <span class="ot">-&gt;</span> <span class="dv">1</span> <span class="fu">/</span> product [<span class="dv">1</span><span class="fu">..</span>v]) [<span class="dv">0</span><span class="fu">..</span>]</code></pre>
+<p>Проблема в том, что этот вариант аллоцировал в 10 раз больше памяти чем первый. Стало как-то неудобно и я заменил вычисление факториала для каждого нового члена ряда Тейлора на вычисление непрерывного списка факториалов, где каждый следующий элемент умножение номера члена ряда на значение предыдущего элемента.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">e <span class="fu">=</span> sum <span class="fu">$</span> takeWhile (<span class="fu">/=</span><span class="dv">0</span>) <span class="fu">$</span> map (<span class="dv">1</span><span class="fu">/</span>) <span class="fu">$</span> scanl (<span class="fu">*</span>) <span class="dv">1</span> [<span class="dv">1</span><span class="fu">..</span>]</code></pre>
+<p>Количество аллоцированной памяти вышло на уровень первого варианта. Однако в первом варианте у нас используется наивный факториал и он всё равно работает замечательно. Разница состоит в том, что первый вариант суммирует ряд до тех пор пока сумма изменяется, а третий — до тех пор пока n-ый член ряда не станет нулём. Любому кто знаком с числами с плавающей запятой понятно что первое условие выполнится быстрее второго. Попробуем использовать именно первое условие. Для этого из бесконечного списка факториалов получим бесконечный список сумм, выделим пары текущая сумма/следующая сумма и будем разматывать список до тех пор пока суммы не равны. Последняя сумма и есть наша.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">e <span class="fu">=</span> fst <span class="fu">$</span> last <span class="fu">$</span> takeWhile (uncurry (<span class="fu">/=</span>)) <span class="fu">$</span> (\v <span class="ot">-&gt;</span> zip v (tail v)) <span class="fu">$</span> scanl1 (\v0 v1 <span class="ot">-&gt;</span> v0 <span class="fu">+</span> <span class="dv">1</span> <span class="fu">/</span> v1) <span class="fu">$</span> scanl (<span class="fu">*</span>) <span class="dv">1</span> [<span class="dv">1</span><span class="fu">..</span>]</code></pre>
+<p>Мы наконец заметно превзошли по выделенной памяти первый вариант. Но не в 10 раз, а в полтора и ценой дополнительного времени на сборку мусора. Это скажем так себе результат.</p>
+<p>P.S: Продолжение следует.</p>
+
+            </div>
+            <div id="footer-push"></div>
+        </div>
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+    </body>
+</html>
