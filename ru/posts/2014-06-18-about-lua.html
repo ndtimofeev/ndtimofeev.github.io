@@ -29,7 +29,7 @@
 <p>Лунный примечателен тем что это очень простой язык. Несмотря на такие языковые возможности как анонимные функции и замыкания это очень традиционный процедурный язык. Языковые конструкции в нём означают примерно то чего от них и ждёшь. Его простота столь велика что определённым образом провоцирует беспечность программиста. В следствие этой беспечности столкновения со специфичными для языка вещами обычно бывают особенно болезненны и полны детской обиды. Здесь перечислено несколько элементарных моментов, столкновение с которыми у программиста не на лунном может вызвать недоумение и предварительное ознакомление с которыми должно упростить вхождение в язык тем кто так и не прочёл документацию<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>:</p>
 <ol>
 <li><p>Массивы индексируются начиная с единицы<a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a>.</p>
-<pre class="sourceCode lua"><code class="sourceCode lua">v <span class="ot">=</span> <span class="ot">{</span> <span class="dv">0</span><span class="ot">,</span> <span class="dv">1</span><span class="ot">,</span> <span class="dv">2</span><span class="ot">,</span> <span class="dv">3</span> <span class="ot">}</span>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua">v <span class="ot">=</span> <span class="ot">{</span> <span class="dv">0</span><span class="ot">,</span> <span class="dv">1</span><span class="ot">,</span> <span class="dv">2</span><span class="ot">,</span> <span class="dv">3</span> <span class="ot">}</span>
 
 <span class="kw">for</span> i <span class="ot">=</span> <span class="dv">0</span><span class="ot">,</span> <span class="ot">#</span>v <span class="kw">do</span>
     <span class="fu">print</span><span class="ot">(</span> v<span class="ot">[</span>i<span class="ot">]</span> <span class="ot">)</span>
@@ -39,9 +39,9 @@
 <span class="co">-- 0</span>
 <span class="co">-- 1</span>
 <span class="co">-- 2</span>
-<span class="co">-- 3</span></code></pre></li>
+<span class="co">-- 3</span></code></pre></div></li>
 <li><p>Все переменные глобальные, если не указано что они локальные<a href="#fn3" class="footnoteRef" id="fnref3"><sup>3</sup></a>.</p>
-<pre class="sourceCode lua"><code class="sourceCode lua">x <span class="ot">=</span> <span class="dv">1</span>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua">x <span class="ot">=</span> <span class="dv">1</span>
 y <span class="ot">=</span> <span class="dv">13</span>
 
 z <span class="ot">=</span> <span class="kw">function</span><span class="ot">()</span>
@@ -54,9 +54,9 @@ z<span class="ot">()</span>
 <span class="fu">print</span><span class="ot">(</span> x<span class="ot">,</span> y <span class="ot">)</span>
 
 <span class="co">-- 1    13</span>
-<span class="co">-- 0    13</span></code></pre></li>
+<span class="co">-- 0    13</span></code></pre></div></li>
 <li><p>Захват переменных в область видимости (в том числе и в замыкания) осуществляется по ссылке или по имени<a href="#fn4" class="footnoteRef" id="fnref4"><sup>4</sup></a>. Таким образом можно невозбранно модифицировать переменные из замыкания в которое они захвачены. Но при передаче значения в функцию в качестве аргумента создаётся новая <strong>локальная</strong> ссылка и изменения переменной во внешней области видимости происходить не будет<a href="#fn5" class="footnoteRef" id="fnref5"><sup>5</sup></a>.</p>
-<pre class="sourceCode lua"><code class="sourceCode lua">x <span class="ot">=</span> <span class="dv">1</span>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua">x <span class="ot">=</span> <span class="dv">1</span>
 y <span class="ot">=</span> <span class="dv">13</span>
 
 z <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span> v <span class="ot">)</span>
@@ -69,9 +69,9 @@ z<span class="ot">(</span> x <span class="ot">)</span>
 <span class="fu">print</span><span class="ot">(</span> x<span class="ot">,</span> y <span class="ot">)</span>
 
 <span class="co">-- 1    13</span>
-<span class="co">-- 1    0</span></code></pre></li>
+<span class="co">-- 1    0</span></code></pre></div></li>
 <li><p>Если инициализировать локальную переменную анонимной функцией, то она не будет доступна внутри области видимости анонимной функции. Таким образом мы вполне можем вызывать такую функцию рекурсивно<a href="#fn6" class="footnoteRef" id="fnref6"><sup>6</sup></a>.</p>
-<pre class="sourceCode lua"><code class="sourceCode lua">f <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span> x <span class="ot">)</span>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua">f <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span> x <span class="ot">)</span>
     f<span class="ot">(</span> x <span class="ot">)</span>
 <span class="kw">end</span>
 
@@ -88,7 +88,7 @@ f2 <span class="ot">=</span> <span class="kw">function</span><span class="ot">(<
     f2<span class="ot">(</span> x <span class="ot">)</span>
 <span class="kw">end</span>
 
-<span class="co">-- А вот так, как не странно, всё хорошо.</span></code></pre></li>
+<span class="co">-- А вот так, как не странно, всё хорошо.</span></code></pre></div></li>
 <li><p>В lua свои собственные особенные регулярные выражения<a href="#fn7" class="footnoteRef" id="fnref7"><sup>7</sup></a>.</p>
 <ul>
 <li>Эскейпинг магических символов осуществляется при помощи ‘%’.</li>
@@ -97,23 +97,23 @@ f2 <span class="ot">=</span> <span class="kw">function</span><span class="ot">(<
 <li>Ну и расширений по мелочи.</li>
 </ul></li>
 <li><p>Знак неравенства. Поскольку все современные промышленные языки программирования так или иначе произошли от C (Java и C#, например), у программиста нет сомнений относительно того как должен выглядеть оператор неравенства — <strong>!=</strong>. А между тем из числа арифметических операторов и условных операторов форма этого оператора пожалуй наиболее непостоянна: <strong>/=</strong> в Haskell, <strong>&lt;&gt;</strong> в Pascal и PHP. лунном неравенство это неожиданно <strong>~=</strong><a href="#fn8" class="footnoteRef" id="fnref8"><sup>8</sup></a>.</p>
-<pre class="sourceCode lua"><code class="sourceCode lua"><span class="fu">print</span><span class="ot">(</span> <span class="dv">1</span> <span class="er">!=</span> <span class="dv">2</span> <span class="ot">)</span>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="fu">print</span><span class="ot">(</span> <span class="dv">1</span> <span class="er">!=</span> <span class="dv">2</span> <span class="ot">)</span>
 
 <span class="co">-- Ошибка компиляции</span>
 
 <span class="fu">print</span><span class="ot">(</span> <span class="dv">1</span> <span class="ot">~=</span> <span class="dv">2</span> <span class="ot">)</span>
 
-<span class="co">-- А вот так просто true</span></code></pre></li>
+<span class="co">-- А вот так просто true</span></code></pre></div></li>
 <li><p>Форматированный вывод чисел. Поскольку в лунном языке нет целых чисел и вместо них используют числа с плавающей запятой двойной точности, то переполнение величины в 2<sup>51</sup> приводит к потере точности целой части. Однако при преобразование числа в строку, переход от целочисленной к экспоненциальной записи происходит раньше этого предела. Этот переход ошибочно воспринимается некоторыми как потеря точности в целой части, хотя это не так и чинится настройками форматирования.</p>
-<pre class="sourceCode lua"><code class="sourceCode lua"><span class="fu">print</span><span class="ot">(</span> <span class="dv">2</span> <span class="ot">^</span> <span class="dv">51</span> <span class="ot">)</span>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="fu">print</span><span class="ot">(</span> <span class="dv">2</span> <span class="ot">^</span> <span class="dv">51</span> <span class="ot">)</span>
 
 <span class="co">-- 2.2517998136852e+15</span>
 
 <span class="fu">print</span><span class="ot">(</span> <span class="fu">string.format</span><span class="ot">(</span> <span class="st">&quot;%.0f&quot;</span><span class="ot">,</span> <span class="dv">2</span> <span class="ot">^</span> <span class="dv">51</span> <span class="ot">)</span> <span class="ot">)</span>
 
-<span class="co">-- 225179981368528</span></code></pre></li>
+<span class="co">-- 225179981368528</span></code></pre></div></li>
 <li><p>Nil не может быть последним элементом массива. Если последним элементом массива оказывается nil, массив укорачивается на этот элемент.</p>
-<pre class="sourceCode lua"><code class="sourceCode lua">list <span class="ot">=</span> <span class="ot">{</span> <span class="dv">1</span><span class="ot">,</span> <span class="dv">2</span><span class="ot">,</span> <span class="dv">3</span> <span class="ot">}</span>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua">list <span class="ot">=</span> <span class="ot">{</span> <span class="dv">1</span><span class="ot">,</span> <span class="dv">2</span><span class="ot">,</span> <span class="dv">3</span> <span class="ot">}</span>
 
 list<span class="ot">[</span><span class="dv">2</span><span class="ot">]</span> <span class="ot">=</span> <span class="kw">nil</span>
 
@@ -129,7 +129,7 @@ list<span class="ot">[</span><span class="dv">3</span><span class="ot">]</span> 
 
 <span class="fu">print</span><span class="ot">(</span> <span class="ot">#{</span> <span class="kw">nil</span><span class="ot">,</span> <span class="kw">nil</span><span class="ot">,</span> <span class="kw">nil</span> <span class="ot">}</span> <span class="ot">)</span>
 
-<span class="co">-- 0</span></code></pre></li>
+<span class="co">-- 0</span></code></pre></div></li>
 </ol>
 <p>Также если вы кондовый сишник, вам безусловно очень понравятся begin и end, но это уже совсем другая история.</p>
 <p>P.S: Запись основана на реальных событиях. Каждым из пунктов прострелил себе колено я или кто-то из моих знакомых.</p>
