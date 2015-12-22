@@ -1,30 +1,105 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>All you need is love and little bit of LSD - Почему хаскель не подходит для скриптования?</title>
-        <link rel="stylesheet" type="text/css" href="../../css/default.css" />
-        <link rel="stylesheet" type="text/css" href="../../css/syntax.css" />
-        <link rel="alternate" type="application/atom+xml" title="Atom" href="../../atom.xml">
-    </head>
-    <body>
-        <div id="container">
-            <div id="header">
-                <div id="logo">
-                    <a href="../../">All you need is love and a little bit of LSD</a>
-                </div>
-            </div>
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <title>haskell</title>
+    <link href="https://ndtimofeev.github.io/tags/haskell.xml" rel="self" />
+    <link href="https://ndtimofeev.github.io" />
+    <id>https://ndtimofeev.github.io/tags/haskell.xml</id>
+    <author>
+        <name>Nikita Timofeev</name>
+        <email>ndtimofeev@gmail.com</email>
+    </author>
+    <updated>2015-08-02T00:00:00Z</updated>
+    <entry>
+    <title>О скоупах</title>
+    <link href="https://ndtimofeev.github.io/ru/posts/2015-08-02-scope.html" />
+    <id>https://ndtimofeev.github.io/ru/posts/2015-08-02-scope.html</id>
+    <published>2015-08-02T00:00:00Z</published>
+    <updated>2015-08-02T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>А вот ещё одна хитрая задачка. Положим у нас есть несколько устройств, которые мы можем как-то дёргать через <code>DevHnd a</code> (где <code>a</code> — тип-параметр характеризующий устройство). Проблема в том, что если два треда будут рулить устройством одновременно, то результат будет трудно предсказать. Хорошо, вводим концепцию владения устройством: управлять устройством<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a> можно только завладев им, если кто-то другой завладел устройством до тебя, то ты ждёшь пока устройство освободится. Просто, но есть пара нюансов:</p>
+<ul>
+<li>мы говорим «блокировка» и подразумеваем «дедлок», поскольку в реальной жизни тред должен контролировать состояние более одного устройства одновременно;</li>
+<li>из типа <code>DevHnd a</code> никак не следует захвачен ли он текущим тредом, а значит проверка этого факта будет осуществляться в рантайме каждый раз когда мы будем модифицировать устройство и более того время от времени мы будем сталкиваться с ошибками времени исполнения.</li>
+</ul>
+<p>В общем случае, когда устройства захватываются и высвобождаются в произвольный момент времени ни первую, ни вторую проблему мы вероятнее всего не решим. Но если рассмотреть ситуацию когда все устройства захватываются и освобождаются одновременно ситуация перестаёт быть такой удручающей и внезапно укладывается в традиционный для haskell’я паттерн:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">    withSomething ::</span> <span class="dt">DevHnd</span> a <span class="ot">-&gt;</span> <span class="dt">DevHnd</span> b <span class="ot">-&gt;</span> <span class="dt">IO</span> c <span class="ot">-&gt;</span> <span class="dt">IO</span> c
+    withSomething dev1 dev2 action <span class="fu">=</span> <span class="kw">do</span>
+        alloc dev1 dev2
+        v <span class="ot">&lt;-</span> action
+        dealloc dev1 dev2
+        return v</code></pre></div>
+<p>Способов заблокировать несколько сущностей одновременно избежав дедлоков более одного, выберите по вкусу. Но <code>action</code> всё равно может содержать действия с устройствами, которые мы не захватили. Чтобы этого избежать можно сделать следующее:</p>
+<ul>
+<li>введём изоморфный <code>DevHnd a</code> тип <code>StaticHnd s a</code> с фантомным параметром <code>s</code> и приватную функцию <code>toStatic</code> делающую из первого второе;</li>
+<li>введём изоморфную <code>IO a</code> монаду <code>Scope a</code>, а также функции для управления устройствами внутри этой монады через <code>StaticHnd s a</code>;</li>
+<li>перепишем предыдущий код так:</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">    withSomething ::</span> <span class="dt">DevHnd</span> a <span class="ot">-&gt;</span> <span class="dt">DevHnd</span> b <span class="ot">-&gt;</span> (forall s<span class="fu">.</span> <span class="dt">StaticHnd</span> s a <span class="ot">-&gt;</span> forall s<span class="fu">.</span> <span class="dt">StaticHnd</span> s b <span class="ot">-&gt;</span> <span class="dt">Scope</span> c) <span class="ot">-&gt;</span> <span class="dt">IO</span> c
+    withSomething dev1 dev2 action <span class="fu">=</span> <span class="kw">do</span>
+        alloc dev1 dev2
+        v <span class="ot">&lt;-</span> action (toStatic dev1) (toStatic dev2)
+        dealloc dev1 dev2
+        return v</code></pre></div>
+<p>Всё. Теперь следим за руками:</p>
+<ul>
+<li>изменять в нашем скоупе устройства через <code>DevHnd a</code> мы не можем, поскольку соответствующий мутатор не определён для <code>Scope a</code>;</li>
+<li>создать <code>StaticHnd s a</code> мы можем только при помощи <code>withSomething</code>, поскольку <code>toStatic</code> не экспортирован наружу;</li>
+<li>вернуть <code>StaticHnd s a</code> из <code>action</code> мы тоже не можем, поскольку функция не может вернуть значение любого типа, а фантомный параметр <code>s</code> передаваемых в неё аргументов объявлен как <code>forall</code>.</li>
+</ul>
+<p>Из всего этого следует что любая попытка использовать внутри нашего скоупа не захваченное устройство или устройство захваченное в другой скоуп (кроме родительского :^)) завершится <strong>ошибкой компиляции</strong>. Хорошо? Очень хорошо. Но на этом хорошее заканчивается и начинается Real World.</p>
+<p>Приведённый код определён для двух устройств захватываемых в скоуп. Очевидным образом это довольно частный случай и этого мало. Также очевидно что функция <code>withSomething</code> содержит детали приватной реализации и должна быть чёрным ящиком. Есть несколько вариантов решения:</p>
+<ul>
+<li><p>Наиболее распространённым решением таких проблем в haskell’е это… унылая копипаста в результате которой получатся функции вида:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">withSomething ::</span> <span class="dt">DevHnd</span> a <span class="ot">-&gt;</span> (forall s<span class="fu">.</span> <span class="dt">StaticHnd</span> s a <span class="ot">-&gt;</span> <span class="dt">Scope</span> c) <span class="ot">-&gt;</span> <span class="dt">IO</span> c
 
-            <div id="content">
-                <h1>Почему хаскель не подходит для скриптования?</h1>
-                <div class="info">
-    
-        Posted on June 13, 2014 with tags: <a href="../../tags/haskell.html">haskell</a>, <a href="../../tags/%D0%BC%D0%B0%D0%BD%D0%B8%D1%84%D0%B5%D1%81%D1%82.html">манифест</a>.
-    
-</div>
+<span class="ot">withSomething2 ::</span> <span class="dt">DevHnd</span> a <span class="ot">-&gt;</span> <span class="dt">DevHnd</span> b <span class="ot">-&gt;</span> (forall s<span class="fu">.</span> <span class="dt">StaticHnd</span> s a <span class="ot">-&gt;</span> forall s<span class="fu">.</span> <span class="dt">StaticHnd</span> s b <span class="ot">-&gt;</span> <span class="dt">Scope</span> c) <span class="ot">-&gt;</span> <span class="dt">IO</span> c
 
-<p>Прежде чем обсуждать недостатки такого безусловно примечательного инструмента следует определиться с таким самоочевидным понятием как скриптование. Речь пойдёт в первую очередь о так называемых скриптах пользователя: небольших программах обеспечивающих интерфейс взаимодействия пользователя и более сложной системы. Например скрипты emacs’а, vim’а или даже acpid’а. В определённой степени можно говорить и командной оболочке операционной системы в принципе с некоторыми оговорками. Следует различать пользовательские скрипты и приложения для одного запуска: последние могут сколь угодно сложны, громоздки, запутаны, не очевидны и нечитабельны, поскольку читать их никто не будет и пишутся они обычно на одном дыхание, а со своими скриптами вам скорее всего ещё долгое время жить. Итак пользовательский скрипт это программа:</p>
+<span class="ot">withSomething3 ::</span> <span class="dt">DevHnd</span> a <span class="ot">-&gt;</span> <span class="dt">DevHnd</span> b <span class="ot">-&gt;</span> <span class="dt">DevHnd</span> c <span class="ot">-&gt;</span>
+    (forall s<span class="fu">.</span> <span class="dt">StaticHnd</span> s a <span class="ot">-&gt;</span> forall s<span class="fu">.</span> <span class="dt">StaticHnd</span> s b <span class="ot">-&gt;</span> forall s<span class="fu">.</span> <span class="dt">StaticHnd</span> s c <span class="ot">-&gt;</span> <span class="dt">Scope</span> d) <span class="ot">-&gt;</span> <span class="dt">IO</span> d</code></pre></div>
+<p>И так до тех пор пока не надоест.</p></li>
+<li><p>Также можно попробовать изобразить композицию.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">action <span class="fu">=</span>
+    withSomething hnd1 <span class="fu">$</span> \sHnd1 <span class="ot">-&gt;</span>
+        withSomething hnd2 <span class="fu">$</span> \sHnd2 <span class="ot">-&gt;</span>
+            withSomething hnd3 <span class="fu">$</span> \sHnd3 <span class="ot">-&gt;</span> <span class="kw">do</span>
+                doSomething sHnd1
+                doSomething sHnd2
+                doSomething sHnd3</code></pre></div>
+<p>Но так мы теряем возможность захватывать устройства одной транзакцией (у каждого <code>withSomething</code> своя транзакция). В принципе это можно пофиксить введя ещё одну стадию заправки ракеты:</p>
+<ul>
+<li>вводим ещё одну монаду<a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a> (например Accure a) внутри которой можно делать только withSomething и run;</li>
+<li>withSomething просто добавляет захват очередного устройства в готовящуюся транзакцию;</li>
+<li>run запускает транзакцию и затем выполняет наш Scope.</li>
+</ul></li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    action <span class="fu">=</span> accure <span class="fu">$</span>
+        withSomething hnd1 <span class="fu">$</span> \sHnd1 <span class="ot">-&gt;</span>
+            withSomething hnd2 <span class="fu">$</span> \sHnd2 <span class="ot">-&gt;</span>
+                withSomething hnd3 <span class="fu">$</span> \sHnd3 <span class="ot">-&gt;</span> run <span class="fu">$</span> <span class="kw">do</span>
+                    doSomething sHnd1
+                    doSomething sHnd2
+                    doSomething sHnd3</code></pre></div>
+<ul>
+<li><p>Наконец есть магия в стиле <code>Applicative</code> позволяющая писать что-то в духе:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">(\v1 <span class="ot">-&gt;</span> … ) <span class="fu">&lt;$&gt;</span> doSome1
+(\v1 v2 <span class="ot">-&gt;</span> … ) <span class="fu">&lt;$&gt;</span> doSome1 <span class="fu">&lt;*&gt;</span> doSome2
+(\v1 v2 v3 <span class="ot">-&gt;</span> … ) <span class="fu">&lt;$&gt;</span> doSome1 <span class="fu">&lt;*&gt;</span> doSome2 <span class="fu">&lt;*&gt;</span> doSome3</code></pre></div>
+<p>Я даже видел как что-то подобное использовали в parsec’е, но от попыток натянуть это на свои типы у меня стабильно плавится мозг.</p></li>
+</ul>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>В данном случае это не так принципиально, но под управлением устройством разумеется подразумевается изменение его состояния.<a href="#fnref1">↩</a></p></li>
+<li id="fn2"><p>Если у вас монада головного мозга конечно. Достаточно моноида, же.<a href="#fnref2">↩</a></p></li>
+</ol>
+</div>]]></summary>
+</entry>
+<entry>
+    <title>Почему хаскель не подходит для скриптования?</title>
+    <link href="https://ndtimofeev.github.io/ru/posts/2014-06-13-why-haskell-bad-for-scripting.html" />
+    <id>https://ndtimofeev.github.io/ru/posts/2014-06-13-why-haskell-bad-for-scripting.html</id>
+    <published>2014-06-13T00:00:00Z</published>
+    <updated>2014-06-13T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>Прежде чем обсуждать недостатки такого безусловно примечательного инструмента следует определиться с таким самоочевидным понятием как скриптование. Речь пойдёт в первую очередь о так называемых скриптах пользователя: небольших программах обеспечивающих интерфейс взаимодействия пользователя и более сложной системы. Например скрипты emacs’а, vim’а или даже acpid’а. В определённой степени можно говорить и командной оболочке операционной системы в принципе с некоторыми оговорками. Следует различать пользовательские скрипты и приложения для одного запуска: последние могут сколь угодно сложны, громоздки, запутаны, не очевидны и нечитабельны, поскольку читать их никто не будет и пишутся они обычно на одном дыхание, а со своими скриптами вам скорее всего ещё долгое время жить. Итак пользовательский скрипт это программа:</p>
 <ul>
 <li>предоставляющая интерфейс к более сложной системе чем система самого скрипта (в противном случае было бы проще поправить код системы)<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>;</li>
 <li>небольшая (в противном случае кто кого скриптует и кто куда встроен<a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a>);</li>
@@ -89,14 +164,30 @@
 <li id="fn4"><p>Иначе у нас бы использовалось целочисленное деление.<a href="#fnref4">↩</a></p></li>
 <li id="fn5"><p>Да-да. Это семейства типов. Но они выглядят более громоздкими. Функциональные зависимости более лаконичны что-ли.<a href="#fnref5">↩</a></p></li>
 </ol>
-</div>
+</div>]]></summary>
+</entry>
+<entry>
+    <title>e</title>
+    <link href="https://ndtimofeev.github.io/ru/posts/2014-05-24-e.html" />
+    <id>https://ndtimofeev.github.io/ru/posts/2014-05-24-e.html</id>
+    <published>2014-05-24T00:00:00Z</published>
+    <updated>2014-05-24T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>Четыре года назад, я радовался работе с бесконечными списками и вычислял e суммируя ряд Тейлора так:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">e <span class="fu">=</span> sum <span class="fu">$</span> map (\x <span class="ot">-&gt;</span> <span class="dv">1</span> <span class="fu">/</span> fac x) [<span class="dv">0</span><span class="fu">..</span>]
+    <span class="kw">where</span>
+        fac n <span class="fu">=</span> foldl (<span class="fu">*</span>) <span class="dv">1</span> [<span class="dv">1</span><span class="fu">..</span>n]
+        sum (x<span class="fu">:</span>xs) <span class="fu">=</span> sumtr (x<span class="fu">:</span>xs) <span class="dv">0</span>
+        sumtr (x<span class="fu">:</span>xs) acc
+            <span class="fu">|</span> (acc <span class="fu">==</span> acc <span class="fu">+</span> x) <span class="fu">=</span> acc
+            <span class="fu">|</span> otherwise <span class="fu">=</span> sumtr xs (x <span class="fu">+</span> acc)</code></pre></div>
+<p>Случайно найдя предыдущий сниппет и смахнув слезу умиления, я переписал суммирование уже со знанием стандартной библиотеки.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">e <span class="fu">=</span> sum <span class="fu">$</span> takeWhile (<span class="fu">/=</span><span class="dv">0</span>) <span class="fu">$</span> map (\v <span class="ot">-&gt;</span> <span class="dv">1</span> <span class="fu">/</span> product [<span class="dv">1</span><span class="fu">..</span>v]) [<span class="dv">0</span><span class="fu">..</span>]</code></pre></div>
+<p>Проблема в том, что этот вариант аллоцировал в 10 раз больше памяти чем первый. Стало как-то неудобно и я заменил вычисление факториала для каждого нового члена ряда Тейлора на вычисление непрерывного списка факториалов, где каждый следующий элемент умножение номера члена ряда на значение предыдущего элемента.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">e <span class="fu">=</span> sum <span class="fu">$</span> takeWhile (<span class="fu">/=</span><span class="dv">0</span>) <span class="fu">$</span> map (<span class="dv">1</span><span class="fu">/</span>) <span class="fu">$</span> scanl (<span class="fu">*</span>) <span class="dv">1</span> [<span class="dv">1</span><span class="fu">..</span>]</code></pre></div>
+<p>Количество аллоцированной памяти вышло на уровень первого варианта. Однако в первом варианте у нас используется наивный факториал и он всё равно работает замечательно. Разница состоит в том, что первый вариант суммирует ряд до тех пор пока сумма изменяется, а третий — до тех пор пока n-ый член ряда не станет нулём. Любому кто знаком с числами с плавающей запятой понятно что первое условие выполнится быстрее второго. Попробуем использовать именно первое условие. Для этого из бесконечного списка факториалов получим бесконечный список сумм, выделим пары текущая сумма/следующая сумма и будем разматывать список до тех пор пока суммы не равны. Последняя сумма и есть наша.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">e <span class="fu">=</span> fst <span class="fu">$</span> last <span class="fu">$</span> takeWhile (uncurry (<span class="fu">/=</span>)) <span class="fu">$</span> (\v <span class="ot">-&gt;</span> zip v (tail v)) <span class="fu">$</span> scanl1 (\v0 v1 <span class="ot">-&gt;</span> v0 <span class="fu">+</span> <span class="dv">1</span> <span class="fu">/</span> v1) <span class="fu">$</span> scanl (<span class="fu">*</span>) <span class="dv">1</span> [<span class="dv">1</span><span class="fu">..</span>]</code></pre></div>
+<p>Мы наконец заметно превзошли по выделенной памяти первый вариант. Но не в 10 раз, а в полтора и ценой дополнительного времени на сборку мусора. Это скажем так себе результат.</p>
+<p>P.S: Продолжение следует.</p>]]></summary>
+</entry>
 
-            </div>
-            <div id="footer-push"></div>
-        </div>
-        <div id="footer">
-            Site proudly generated by
-            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
-        </div>
-    </body>
-</html>
+</feed>

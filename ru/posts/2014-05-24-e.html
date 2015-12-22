@@ -6,6 +6,7 @@
         <title>All you need is love and little bit of LSD - e</title>
         <link rel="stylesheet" type="text/css" href="../../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../../css/syntax.css" />
+        <link rel="alternate" type="application/atom+xml" title="Atom" href="../../atom.xml">
     </head>
     <body>
         <div id="container">
@@ -13,20 +14,17 @@
                 <div id="logo">
                     <a href="../../">All you need is love and a little bit of LSD</a>
                 </div>
-                <!-- <div id="navigation"> -->
-                <!--     <a href="/about.html">About</a> -->
-                <!--     <a href="/contact.html">Contact</a> -->
-                <!--     <a href="/archive.html">Archive</a> -->
-                <!-- </div> -->
             </div>
 
             <div id="content">
                 <h1>e</h1>
                 <div class="info">
-    Posted on May 24, 2014 with tags: <a href="../../tags/haskell.html">haskell</a>.
+    
+        Posted on May 24, 2014 with tags: <a href="../../tags/haskell.html">haskell</a>.
+    
 </div>
 
-<p>Четыре года назад, я радовался работе с бесконечными списками и вычислял e суммирую ряд Тейлора так.</p>
+<p>Четыре года назад, я радовался работе с бесконечными списками и вычислял e суммируя ряд Тейлора так:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">e <span class="fu">=</span> sum <span class="fu">$</span> map (\x <span class="ot">-&gt;</span> <span class="dv">1</span> <span class="fu">/</span> fac x) [<span class="dv">0</span><span class="fu">..</span>]
     <span class="kw">where</span>
         fac n <span class="fu">=</span> foldl (<span class="fu">*</span>) <span class="dv">1</span> [<span class="dv">1</span><span class="fu">..</span>n]
