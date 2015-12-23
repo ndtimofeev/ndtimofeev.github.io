@@ -1,35 +1,21 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>All you need is love and little bit of LSD - Jolla</title>
-        <link rel="stylesheet" type="text/css" href="../../css/default.css" />
-        <link rel="stylesheet" type="text/css" href="../../css/syntax.css" />
-        <link rel="alternate" type="application/atom+xml" title="Atom" href="../../atom.xml">
-    </head>
-    <body>
-        <div id="container">
-            <div id="header">
-                <div id="logo">
-                    <a href="../../">All you need is love and a little bit of LSD</a>
-                </div>
-                <div id="navigation">
-                    <a href="../../ru/about.html">About</a>
-                    <a href="../../archive.html">Archive</a>
-                </div>
-            </div>
-
-            <div id="content">
-                <h1>Jolla</h1>
-                <div class="info">
-    
-        Posted on July 17, 2014 with tags: <a href="../../ru/tags/Jolla.html">Jolla</a>.
-    
-</div>
-
-
-<p>Jolla — это тот самый линукс-смартфон который мы все так ждали. Здесь всё как на десктопе: искоропки ничего не работает, накатываешь обновления — становится лучше, дорабатываешь напильником — получается худо-бедно что-то работоспособное. Зато масса удовольствия от напильника и общения с разработчиками, а также очень неплохая звонилка и таймерная служба искоропки.</p>
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <title>All your need is love and a little bit of LSD — tagged Jolla</title>
+    <link href="https://ndtimofeev.github.io/ru/tags/Jolla.xml" rel="self" />
+    <link href="https://ndtimofeev.github.io" />
+    <id>https://ndtimofeev.github.io/ru/tags/Jolla.xml</id>
+    <author>
+        <name>Nikita Timofeev</name>
+        <email>ndtimofeev@gmail.com</email>
+    </author>
+    <updated>2014-07-17T00:00:00Z</updated>
+    <entry>
+    <title>Jolla</title>
+    <link href="https://ndtimofeev.github.io/ru/posts/2014-07-17-Jolla.html" />
+    <id>https://ndtimofeev.github.io/ru/posts/2014-07-17-Jolla.html</id>
+    <published>2014-07-17T00:00:00Z</published>
+    <updated>2014-07-17T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>Jolla — это тот самый линукс-смартфон который мы все так ждали. Здесь всё как на десктопе: искоропки ничего не работает, накатываешь обновления — становится лучше, дорабатываешь напильником — получается худо-бедно что-то работоспособное. Зато масса удовольствия от напильника и общения с разработчиками, а также очень неплохая звонилка и таймерная служба искоропки.</p>
 <!--more-->
 <p>Впечатления от устройства самые противоречивые. Первое что бросается в глаза — это не Нокия. Ни тебе цельного корпуса из поликарбоната защищающего устройство от ударов, ни тебе AMOLED дисплея позволяющего без лишних затрат рисовать часы на заблокированном экране, ни тебе фрезеровки. В общем нет в нём искры гнева Божьего. Затем ты включаешь телефон и начинается самое интересное.</p>
 <ol>
@@ -56,19 +42,7 @@
 <li><p>Если вы красноглазый гик и вам очень нужно менять порядок монтирования файловых систем при загрузке вашего телефона или возможность подцепить к нему по i2c какой-то свой контроллер купите себе устройство потому как за вычетом дизайнеров разработчики устройства примерно такие же люди. Все вышеперечисленные проблемы вас никак не коснуться.</p></li>
 <li><p>Если вы чувствуете себя линуксоидом, но у вас нет лишних 350€ чтобы отдать их в фонд помощи замерзающих финов портируйте Sailfish OS на Nexus, n9 или то устройство которое у вас есть под рукой. Почему бы и нет.</p></li>
 </ul>
-<p>Во всех остальных случаях просто купите себе андроид, поскольку на данный момент устройство является красивым андроид лаунчером. Это правда никак не относится к вашему покорному слуге, который получил от устройства всё то чего ему так давно не хватало: возможность осуществлять звонки не выходя на крышу, задавать множество таймеров на различные задачи и поставить Five to One на будильник.</p>
+<p>Во всех остальных случаях просто купите себе андроид, поскольку на данный момент устройство является красивым андроид лаунчером. Это правда никак не относится к вашему покорному слуге, который получил от устройства всё то чего ему так давно не хватало: возможность осуществлять звонки не выходя на крышу, задавать множество таймеров на различные задачи и поставить Five to One на будильник.</p>]]></summary>
+</entry>
 
-            </div>
-            <div id="footer-push"></div>
-        </div>
-        
-            <div id="footer-menu">
-                <a href="../../ru/posts/2014-07-17-Jolla.xml">Subscribe to post updates</a>
-            </div>
-        
-        <div id="footer">
-            Site proudly generated by
-            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
-        </div>
-    </body>
-</html>
+</feed>

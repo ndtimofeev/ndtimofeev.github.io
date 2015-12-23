@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <title>All your need is love and a little bit of LSD</title>
+    <link href="https://ndtimofeev.github.io/ru/posts/2015-02-17-films.xml" rel="self" />
+    <link href="https://ndtimofeev.github.io" />
+    <id>https://ndtimofeev.github.io/ru/posts/2015-02-17-films.xml</id>
+    <author>
+        <name>Nikita Timofeev</name>
+        <email>ndtimofeev@gmail.com</email>
+    </author>
+    <updated>2015-02-17T00:00:00Z</updated>
+    <entry>
+    <title>Список фильмов которые надо посмотреть или пересмотреть</title>
+    <link href="https://ndtimofeev.github.io/ru/posts/2015-02-17-films.html" />
+    <id>https://ndtimofeev.github.io/ru/posts/2015-02-17-films.html</id>
+    <published>2015-02-17T00:00:00Z</published>
+    <updated>2015-02-17T00:00:00Z</updated>
+    <summary type="html"><![CDATA[Post updated on December 20, 2015]]></summary>
+</entry>
+<entry>
+    <title>Список фильмов которые надо посмотреть или пересмотреть</title>
+    <link href="https://ndtimofeev.github.io/ru/posts/2015-02-17-films.html" />
+    <id>https://ndtimofeev.github.io/ru/posts/2015-02-17-films.html</id>
+    <published>2015-02-17T00:00:00Z</published>
+    <updated>2015-02-17T00:00:00Z</updated>
+    <summary type="html"><![CDATA[Post updated on December 21, 2015]]></summary>
+</entry>
+
+</feed>
