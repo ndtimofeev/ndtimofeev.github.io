@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>All you need is love and little bit of LSD - Немного о лунном.</title>
+        <link rel="stylesheet" type="text/css" href="../../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../../css/syntax.css" />
+        <link rel="alternate" type="application/atom+xml" title="Atom" href="../../atom.xml">
+    </head>
+    <body>
+        <div id="container">
+            <div id="header">
+                <div id="logo">
+                    <a href="../../">All you need is love and a little bit of LSD</a>
+                </div>
+                <div id="navigation">
+                    <a href="../../ru/about.html">About</a>
+                    <a href="../../archive.html">Archive</a>
+                </div>
+            </div>
+
+            <div id="content">
+                <h1>Немного о лунном.</h1>
+                <div class="info">
+    
+        Posted on June 18, 2014 with tags: <a href="../../ru/tags/lua.html">lua</a>.
+    
+</div>
+
+
+<p>Лунный примечателен тем что это очень простой язык. Несмотря на такие языковые возможности как анонимные функции и замыкания это очень традиционный процедурный язык. Языковые конструкции в нём означают примерно то чего от них и ждёшь. Его простота столь велика что определённым образом провоцирует беспечность программиста. В следствие этой беспечности столкновения со специфичными для языка вещами обычно бывают особенно болезненны и полны детской обиды. Здесь перечислено несколько элементарных моментов, столкновение с которыми у программиста не на лунном может вызвать недоумение и предварительное ознакомление с которыми должно упростить вхождение в язык тем кто так и не прочёл документацию<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>:</p>
+<ol>
+<li><p>Массивы индексируются начиная с единицы<a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a>.</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua">v <span class="ot">=</span> <span class="ot">{</span> <span class="dv">0</span><span class="ot">,</span> <span class="dv">1</span><span class="ot">,</span> <span class="dv">2</span><span class="ot">,</span> <span class="dv">3</span> <span class="ot">}</span>
+
+<span class="kw">for</span> i <span class="ot">=</span> <span class="dv">0</span><span class="ot">,</span> <span class="ot">#</span>v <span class="kw">do</span>
+    <span class="fu">print</span><span class="ot">(</span> v<span class="ot">[</span>i<span class="ot">]</span> <span class="ot">)</span>
+<span class="kw">end</span>
+
+<span class="co">-- nil</span>
+<span class="co">-- 0</span>
+<span class="co">-- 1</span>
+<span class="co">-- 2</span>
+<span class="co">-- 3</span></code></pre></div></li>
+<li><p>Все переменные глобальные, если не указано что они локальные<a href="#fn3" class="footnoteRef" id="fnref3"><sup>3</sup></a>.</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua">x <span class="ot">=</span> <span class="dv">1</span>
+y <span class="ot">=</span> <span class="dv">13</span>
+
+z <span class="ot">=</span> <span class="kw">function</span><span class="ot">()</span>
+    x <span class="ot">=</span> <span class="dv">0</span>
+    <span class="kw">local</span> y <span class="ot">=</span> <span class="dv">0</span>
+<span class="kw">end</span>
+
+<span class="fu">print</span><span class="ot">(</span> x<span class="ot">,</span> y <span class="ot">)</span>
+z<span class="ot">()</span>
+<span class="fu">print</span><span class="ot">(</span> x<span class="ot">,</span> y <span class="ot">)</span>
+
+<span class="co">-- 1    13</span>
+<span class="co">-- 0    13</span></code></pre></div></li>
+<li><p>Захват переменных в область видимости (в том числе и в замыкания) осуществляется по ссылке или по имени<a href="#fn4" class="footnoteRef" id="fnref4"><sup>4</sup></a>. Таким образом можно невозбранно модифицировать переменные из замыкания в которое они захвачены. Но при передаче значения в функцию в качестве аргумента создаётся новая <strong>локальная</strong> ссылка и изменения переменной во внешней области видимости происходить не будет<a href="#fn5" class="footnoteRef" id="fnref5"><sup>5</sup></a>.</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua">x <span class="ot">=</span> <span class="dv">1</span>
+y <span class="ot">=</span> <span class="dv">13</span>
+
+z <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span> v <span class="ot">)</span>
+    v <span class="ot">=</span> <span class="dv">0</span>
+    y <span class="ot">=</span> <span class="dv">0</span>
+<span class="kw">end</span>
+
+<span class="fu">print</span><span class="ot">(</span> x<span class="ot">,</span> y <span class="ot">)</span>
+z<span class="ot">(</span> x <span class="ot">)</span>
+<span class="fu">print</span><span class="ot">(</span> x<span class="ot">,</span> y <span class="ot">)</span>
+
+<span class="co">-- 1    13</span>
+<span class="co">-- 1    0</span></code></pre></div></li>
+<li><p>Если инициализировать локальную переменную анонимной функцией, то она не будет доступна внутри области видимости анонимной функции. Таким образом мы вполне можем вызывать такую функцию рекурсивно<a href="#fn6" class="footnoteRef" id="fnref6"><sup>6</sup></a>.</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua">f <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span> x <span class="ot">)</span>
+    f<span class="ot">(</span> x <span class="ot">)</span>
+<span class="kw">end</span>
+
+<span class="co">-- Всё в порядке. Путь к переполнению стека открыт.</span>
+
+<span class="kw">local</span> f1 <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span> x <span class="ot">)</span>
+    f1<span class="ot">(</span> x <span class="ot">)</span>
+<span class="kw">end</span>
+
+<span class="co">-- Всё плохо.</span>
+
+<span class="kw">local</span> f2
+f2 <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span> x <span class="ot">)</span>
+    f2<span class="ot">(</span> x <span class="ot">)</span>
+<span class="kw">end</span>
+
+<span class="co">-- А вот так, как не странно, всё хорошо.</span></code></pre></div></li>
+<li><p>В lua свои собственные особенные регулярные выражения<a href="#fn7" class="footnoteRef" id="fnref7"><sup>7</sup></a>.</p>
+<ul>
+<li>Эскейпинг магических символов осуществляется при помощи ‘%’.</li>
+<li>Символы пунктуации нуждаются в эскейпинге.</li>
+<li>‘-’ это такой ленивый ‘*’.</li>
+<li>Ну и расширений по мелочи.</li>
+</ul></li>
+<li><p>Знак неравенства. Поскольку все современные промышленные языки программирования так или иначе произошли от C (Java и C#, например), у программиста нет сомнений относительно того как должен выглядеть оператор неравенства — <strong>!=</strong>. А между тем из числа арифметических операторов и условных операторов форма этого оператора пожалуй наиболее непостоянна: <strong>/=</strong> в Haskell, <strong>&lt;&gt;</strong> в Pascal и PHP. лунном неравенство это неожиданно <strong>~=</strong><a href="#fn8" class="footnoteRef" id="fnref8"><sup>8</sup></a>.</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="fu">print</span><span class="ot">(</span> <span class="dv">1</span> <span class="er">!=</span> <span class="dv">2</span> <span class="ot">)</span>
+
+<span class="co">-- Ошибка компиляции</span>
+
+<span class="fu">print</span><span class="ot">(</span> <span class="dv">1</span> <span class="ot">~=</span> <span class="dv">2</span> <span class="ot">)</span>
+
+<span class="co">-- А вот так просто true</span></code></pre></div></li>
+<li><p>Форматированный вывод чисел. Поскольку в лунном языке нет целых чисел и вместо них используют числа с плавающей запятой двойной точности, то переполнение величины в 2<sup>51</sup> приводит к потере точности целой части. Однако при преобразование числа в строку, переход от целочисленной к экспоненциальной записи происходит раньше этого предела. Этот переход ошибочно воспринимается некоторыми как потеря точности в целой части, хотя это не так и чинится настройками форматирования.</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="fu">print</span><span class="ot">(</span> <span class="dv">2</span> <span class="ot">^</span> <span class="dv">51</span> <span class="ot">)</span>
+
+<span class="co">-- 2.2517998136852e+15</span>
+
+<span class="fu">print</span><span class="ot">(</span> <span class="fu">string.format</span><span class="ot">(</span> <span class="st">&quot;%.0f&quot;</span><span class="ot">,</span> <span class="dv">2</span> <span class="ot">^</span> <span class="dv">51</span> <span class="ot">)</span> <span class="ot">)</span>
+
+<span class="co">-- 225179981368528</span></code></pre></div></li>
+<li><p>Nil не может быть последним элементом массива. Если последним элементом массива оказывается nil, массив укорачивается на этот элемент.</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua">list <span class="ot">=</span> <span class="ot">{</span> <span class="dv">1</span><span class="ot">,</span> <span class="dv">2</span><span class="ot">,</span> <span class="dv">3</span> <span class="ot">}</span>
+
+list<span class="ot">[</span><span class="dv">2</span><span class="ot">]</span> <span class="ot">=</span> <span class="kw">nil</span>
+
+<span class="fu">print</span><span class="ot">(</span> table<span class="ot">.</span>unpack<span class="ot">(</span> list <span class="ot">)</span> <span class="ot">)</span>
+
+<span class="co">-- 1    nil    3</span>
+
+list<span class="ot">[</span><span class="dv">3</span><span class="ot">]</span> <span class="ot">=</span> <span class="kw">nil</span>
+
+<span class="fu">print</span><span class="ot">(</span> table<span class="ot">.</span>unpack<span class="ot">(</span> list <span class="ot">)</span> <span class="ot">)</span>
+
+<span class="co">-- 1</span>
+
+<span class="fu">print</span><span class="ot">(</span> <span class="ot">#{</span> <span class="kw">nil</span><span class="ot">,</span> <span class="kw">nil</span><span class="ot">,</span> <span class="kw">nil</span> <span class="ot">}</span> <span class="ot">)</span>
+
+<span class="co">-- 0</span></code></pre></div></li>
+</ol>
+<p>Также если вы кондовый сишник, вам безусловно очень понравятся begin и end, но это уже совсем другая история.</p>
+<p>P.S: Запись основана на реальных событиях. Каждым из пунктов прострелил себе колено я или кто-то из моих знакомых.</p>
+<p>P.P.S: Продолжение следует.</p>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>Важно понимать, что никакой тайны из этих вещей не делается. Наоборот, все эти вещи описаны в официальной документации к языку. Она у него кстати довольно короткая. Просто все её читают в лучшем случае по диагонали.<a href="#fnref1">↩</a></p></li>
+<li id="fn2"><p>Читать <a href="http://www.lua.org/manual/5.2/manual.html#2.1">здесь</a> где-то начиная с «We use the term sequence…».<a href="#fnref2">↩</a></p></li>
+<li id="fn3"><p>Читать <a href="http://www.lua.org/manual/5.2/manual.html#3.2">здесь</a> начиная с «…Any variable name…».<a href="#fnref3">↩</a></p></li>
+<li id="fn4"><p>Все глобальные переменные связываются по имени. Если точнее то все глобальные переменные просто элементы хэштаблицы _ENV и связывание с ними это поиск значения в этой таблице по имени. Факт этот настолько поразил меня, что не упомянуть о нём совсем я не мог, хотя он и выходит за рамки обсуждения.<a href="#fnref4">↩</a></p></li>
+<li id="fn5"><p>Читать <a href="http://www.lua.org/manual/5.2/manual.html#3.2">здесь</a> начиная с «…function’s formal parameter…».<a href="#fnref5">↩</a></p></li>
+<li id="fn6"><p>Читать <a href="http://www.lua.org/manual/5.2/manual.html#3.4.10">здесь</a> начиная с «…The statement local…».<a href="#fnref6">↩</a></p></li>
+<li id="fn7"><p>Читать <a href="http://www.lua.org/manual/5.2/manual.html#6.4.1">здесь</a> всё.<a href="#fnref7">↩</a></p></li>
+<li id="fn8"><p>Читать <a href="http://www.lua.org/manual/5.2/manual.html#3.4.3">здесь</a> начиная с «…The operator ~=…».<a href="#fnref8">↩</a></p></li>
+</ol>
+</div>
+
+
+<div id="disqus_thread"></div>
+<script type="text/javascript">
+    /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+    var disqus_shortname = 'ndtimofeev'; // required: replace example with your forum shortname
+
+    var disqus_config = function() {
+        this.page.identifier = '/ru/posts/2014-06-18-about-lua.disquse.html';
+    };
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="http://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+<script id="dsq-count-scr" src="//ndtimofeev.disqus.com/count.js" async></script>
+
+            </div>
+            <div id="footer-push"></div>
+        </div>
+        
+            <div id="footer-menu">
+                <a href="../../ru/posts/2014-06-18-about-lua.disquse.xml">Subscribe to post updates</a>
+            </div>
+        
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+    </body>
+</html>
