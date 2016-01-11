@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>All you need is love and little bit of LSD - О MskHUG в декабре 2015го года…</title>
+        <link rel="stylesheet" type="text/css" href="../../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../../css/syntax.css" />
+        <link rel="alternate" type="application/atom+xml" title="Atom" href="../../atom.xml">
+    </head>
+    <body>
+        <div id="container">
+            <div id="header">
+                <div id="logo">
+                    <a href="../../">All you need is love and a little bit of LSD</a>
+                </div>
+                <div id="navigation">
+                    <a href="../../ru/about.html">About</a>
+                    <a href="../../archive.html">Archive</a>
+                </div>
+            </div>
+
+            <div id="content">
+                <h1>О MskHUG в декабре 2015го года…</h1>
+                <div class="info">
+    
+        Posted on December 11, 2015 with tags: <a href="../../ru/tags/haskell.html">haskell</a>.
+    
+</div>
+
+
+<p>Сходил на слёт хаскелистов в Яндексе, послушал доклады. Коротко:</p>
+<ul>
+<li><p>Лучший доклад был пожалуй про Servant. Человек настолько задороно выступил, что мне захотелось оный Servant потыкать, хотя у меня и нет задач для которых мог бы понадобится веб-сервер. Чуваку, который сравнивал сложность комбинирования роутов веб-сервера и сложность комбинирования парсеров в parsec посылаю луч ненависти: во втором случае сложность вылезает из-за типично нетревиальных грамматик и того что парсек говно и не умеет в бэктрекинг (но это совсем другая история).</p></li>
+<li><p>Наиболее полезным для меня оказался доклад про зависимые типы, который оказался не про зависимые типы, а про костыли в GHC, которые позволяют типизировать типы типами. Собственно я наконец примерно понял как работает этот механизм. А вот квантор <code>pi</code> мне напомнил С++14 с его <code>decltype(auto)</code>.</p></li>
+<li><p>Зефиров опять рассказывал что-то очень интересное и я опять мало что смог вынести из доклада: во-первых опоздал к началу, во-вторых сам доклад проводился в экстремальных условиях и в-третьих Зефиров довольно хреновый докладчик.</p></li>
+<li><p>Крайне полезным был доклад <span class="citation">@qnikst</span><a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>’а. Жаль что он не успел его дочитать. Всё бы ничего, но мне как-то стабильно не нужно вызывать внешние функции из haskell руками. Обычно дело ограничивается сериализацией/десериализацией сишных структур прилетевших из ядерных интерфейсов. Хотя идея хакнуть рантайм через unsafe ffi-вызовы, которые блокируют тред и gc мне показалась очень интересной, хотя и вредной.</p></li>
+<li><p>Посмотрел на живого <del>Ленина</del><span class="citation">@qnikst</span>’а. Он классный <del>,от него сияние исходит</del>.</p></li>
+<li><p>Попытался объяснить живому <span class="citation">@segfault</span>’у радость комбинатора неподвижной точки.</p></li>
+<li><p>Попытался объяснить живому <span class="citation">@segfault</span>’у радость GREEN’а, полнопрограмной компиляции и отказа от стека в пользу распихивания аргументов функций по фиксированным непересекающимся регистрам.</p></li>
+</ul>
+<p>Больше не сделал ничего ползного. В следующий раз нужно будет запастись:</p>
+<ul>
+<li><p>Бейджем с ником на жуйке.</p></li>
+<li><p>Карточками с вопросами, чтобы передавать их по кругу по столу во время неформальной части.</p></li>
+<li><p>Докладом про Remote Monad, если к этому времени мой <code>Action</code> будет честным частным случаем.</p></li>
+</ul>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>[http://juick.com/qnikst]<a href="#fnref1">↩</a></p></li>
+</ol>
+</div>
+
+
+<div id="disqus_thread"></div>
+<script type="text/javascript">
+    /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+    var disqus_shortname = 'ndtimofeev'; // required: replace example with your forum shortname
+
+    var disqus_config = function() {
+        this.page.identifier = '/ru/posts/2015-12-11-meetup.disqus.html';
+        this.page.title      = 'О MskHUG в декабре 2015го года…';
+    };
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="http://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+<script id="dsq-count-scr" src="//ndtimofeev.disqus.com/count.js" async></script>
+
+            </div>
+            <div id="footer-push"></div>
+        </div>
+        <div id="footer-menu">
+            
+                
+                        <a href="../../ru/posts/2015-12-11-meetup.xml">Subscribe to post updates</a>
+                
+                        <a href="../../ru/posts/2015-12-11-meetup.html">To plain</a>
+                
+            
+        </div>
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+    </body>
+</html>
