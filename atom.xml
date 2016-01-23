@@ -8,8 +8,158 @@
         <name>Nikita Timofeev</name>
         <email>ndtimofeev@gmail.com</email>
     </author>
-    <updated>2015-12-27T00:00:00Z</updated>
+    <updated>2016-01-19T00:00:00Z</updated>
     <entry>
+    <title>O Managed и MonadCatch или что делать если нельзя, но очень хочется…</title>
+    <link href="https://ndtimofeev.github.io/ru/posts/2016-01-19-managed.html" />
+    <id>https://ndtimofeev.github.io/ru/posts/2016-01-19-managed.html</id>
+    <published>2016-01-19T00:00:00Z</published>
+    <updated>2016-01-19T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>Есть такой классный человек — <a href="http://www.haskellforall.com/">Gabriel Gonzalez</a>. Он делает с Haskell довольно классные и простые вещи. Зачастую ими совершенно никто не пользуется, но тем не менее они есть и на них стоит посмотреть хотя бы для того чтобы проникнуться и не делать из Хаскеля промышленную Яву. В частности именно он является автором пакета <a href="http://hackage.haskell.org/package/managed">managed</a>, который позволяет <del>экономить отступы</del> управлять ресурсами довольно своеобразным способом.</p>
+<h2 id="что-такое-managed">Что такое Managed?</h2>
+<p>Положим у есть файл. и нужно с ним сделать что-то хорошее. Файл надо открыть, получить его <code>Handle</code>, сделать с ним что-то и закрыть. Примерно так:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    hnd <span class="ot">&lt;-</span> openFile <span class="st">&quot;path/to/file&quot;</span> <span class="dt">ReadMode</span>
+    hPutStrLn hnd <span class="st">&quot;\1051\1103\1093, \1080\1076\1080 \1085\1072 \1093\1091\1081&quot;</span>
+    hClose hnd</code></pre></div>
+<p>Что будет если попытаться записать что-то в файл открытый на чтение? Вылетит исключение и если его не поймать — тред упадёт. Если он главный и единственный можно заканчивать разговор. Если же есть друге треды то видимо где-то остался висеть открытый файл. Плохо. Хорошо, пишем так.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    hnd <span class="ot">&lt;-</span> openFile <span class="st">&quot;path/to/file&quot;</span> <span class="dt">ReadMode</span>
+    hPutStrLn hnd <span class="st">&quot;\1051\1103\1093, \1080\1076\1080 \1085\1072 \1093\1091\1081&quot;</span> <span class="ot">`onException`</span> hClose hnd
+    hClose hnd</code></pre></div>
+<p>Уже лучше. Правда может прилететь асинхронное исключение из соседнего треда, которое может успеть помешать закрыть файл, но от него можно обезопасить себя при помощи mask. А можно обнаружить в стандартной библиотеке функцию <code>withFile</code>, которая всё это делает за вас примерно так.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    withFile <span class="st">&quot;path/to/file&quot;</span> <span class="dt">ReadMode</span> <span class="fu">$</span> \hnd <span class="ot">-&gt;</span> hPutStrLn hnd <span class="st">&quot;\1051\1103\1093, \1080\1076\1080 \1085\1072 \1093\1091\1081&quot;</span></code></pre></div>
+<p>Всё прекрасно до тех пор пока нам не нужно записать содержимое одного файла в другой или даже записать содержимое двух файлов в один:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    withFile <span class="st">&quot;path/to/file&quot;</span> <span class="dt">ReadMode</span> <span class="fu">$</span> \hnd <span class="ot">-&gt;</span>
+        withFile <span class="st">&quot;path/to/file1&quot;</span> <span class="dt">ReadMode</span> <span class="fu">$</span> \hnd1 <span class="ot">-&gt;</span>
+            withFile <span class="st">&quot;path/to/file2&quot;</span> <span class="dt">ReadMode</span> <span class="fu">$</span> \hnd2 <span class="ot">-&gt;</span> <span class="kw">do</span>
+                hGetContents hnd  <span class="fu">&gt;&gt;=</span> hPutStr hnd2
+                hGetContents hnd1 <span class="fu">&gt;&gt;=</span> hPutStr hnd2</code></pre></div>
+<p>Уже не так красиво. Хорошо, можно накидать волшебную стейт-монаду содержащую хэндлеры финализирующие действия аллоцирующие ресурсы.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    runMagicState <span class="fu">$</span> <span class="kw">do</span>
+        hnd  <span class="ot">&lt;-</span> smartFileOpen <span class="st">&quot;path/to/file&quot;</span>  <span class="dt">ReadMode</span>
+        hnd1 <span class="ot">&lt;-</span> smartFileOpen <span class="st">&quot;path/to/file1&quot;</span> <span class="dt">ReadMode</span>
+        hnd2 <span class="ot">&lt;-</span> smartFileOpen <span class="st">&quot;path/to/file2&quot;</span> <span class="dt">ReadMode</span>
+        liftIO <span class="fu">$</span> hGetContents hnd  <span class="fu">&gt;&gt;=</span> hPutStr hnd2
+        liftIO <span class="fu">$</span> hGetContents hnd1 <span class="fu">&gt;&gt;=</span> hPutStr hnd2</code></pre></div>
+<p>Можно сделать так чтобы смарт-конструкторы возвращали ещё и универсальный ключ, добавить подсчёт ссылок, передавать ресурсы между тредами, освобождать в рантайме и вообще сделать свой собственный <a href="http://hackage.haskell.org/package/resourcet">resourcet</a>. Правда придётся писать для всех ресурсов смарт-конструкторы регистрирующие финализаторы, которые можно использовать только с волшебной монадой, что немного расстраивает. А можно решить что во варианте с <code>withFile</code> итак всё было хорошо кроме способа соединения вычислений между собой и поискать тут монаду более хитрую монаду.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    <span class="kw">newtype</span> <span class="dt">Managed</span> a <span class="fu">=</span> <span class="dt">Managed</span> {<span class="ot"> with ::</span> forall r <span class="fu">.</span> (a <span class="ot">-&gt;</span> <span class="dt">IO</span> r) <span class="ot">-&gt;</span> <span class="dt">IO</span> r }
+
+    <span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">Managed</span> <span class="kw">where</span>
+        fmap f mx <span class="fu">=</span> <span class="dt">Managed</span> <span class="fu">$</span> \return_ <span class="ot">-&gt;</span>
+            with mx <span class="fu">$</span> \x <span class="ot">-&gt;</span>
+            return_ <span class="fu">$</span> f x
+
+    <span class="kw">instance</span> <span class="dt">Applicative</span> <span class="dt">Managed</span> <span class="kw">where</span>
+        pure r    <span class="fu">=</span> <span class="dt">Managed</span> <span class="fu">$</span> \return_ <span class="ot">-&gt;</span> return_ r
+
+        mf <span class="fu">&lt;*&gt;</span> mx <span class="fu">=</span> <span class="dt">Managed</span> <span class="fu">$</span> \return_ <span class="ot">-&gt;</span>
+            with mf <span class="fu">$</span> \f <span class="ot">-&gt;</span>
+            with mx <span class="fu">$</span> \x <span class="ot">-&gt;</span>
+            return_ <span class="fu">$</span> f x
+
+    <span class="kw">instance</span> <span class="dt">Monad</span> <span class="dt">Managed</span> <span class="kw">where</span>
+        return   <span class="fu">=</span> pure
+
+        ma <span class="fu">&gt;&gt;=</span> f <span class="fu">=</span> <span class="dt">Managed</span> <span class="fu">$</span> \return_ <span class="ot">-&gt;</span>
+            with ma <span class="fu">$</span> \a <span class="ot">-&gt;</span>
+            with (f a) <span class="fu">$</span> \b <span class="ot">-&gt;</span>
+            return_ b
+
+    <span class="kw">instance</span> <span class="dt">MonadIO</span> <span class="dt">Managed</span> <span class="kw">where</span>
+        liftIO m <span class="fu">=</span> <span class="dt">Managed</span> <span class="fu">$</span> \return_ <span class="ot">-&gt;</span> <span class="kw">do</span>
+            v <span class="ot">&lt;-</span> m
+            return_ v</code></pre></div>
+<p>В принципе это примерно весь код, который необходим для работы <code>Managed</code>. Теперь можно писать код как-то так.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    with <span class="fu">$</span> <span class="kw">do</span>
+        hnd  <span class="ot">&lt;-</span> <span class="dt">Managed</span> <span class="fu">$</span> withFile <span class="st">&quot;path/to/file&quot;</span> <span class="dt">ReadMode</span>
+        hnd1 <span class="ot">&lt;-</span> <span class="dt">Managed</span> <span class="fu">$</span> withFile <span class="st">&quot;path/to/file1&quot;</span> <span class="dt">ReadMode</span>
+        hnd2 <span class="ot">&lt;-</span> <span class="dt">Managed</span> <span class="fu">$</span> withFile <span class="st">&quot;path/to/file2&quot;</span> <span class="dt">ReadMode</span>
+        liftIO <span class="fu">$</span> hGetContents hnd  <span class="fu">&gt;&gt;=</span> hPutStr hnd2
+        liftIO <span class="fu">$</span> hGetContents hnd1 <span class="fu">&gt;&gt;=</span> hPutStr hnd2</code></pre></div>
+<p>Плюсом данного подхода является использование готовых смарт-конструкторов, написанных автором библиотеки, отсутствие явного стейта, который можно было бы как-то хитро сломать и простота кода. Минусом скромность возможностей: нельзя передать ресурс во владение другому треду, нельзя запустить финализацию раньше времени<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>. Примерно как <a href="https://en.wikipedia.org/wiki/Resource_Acquisition_Is_Initialization">RAII</a> в C++.</p>
+<h2 id="monadcatch-и-monadmask">MonadCatch и MonadMask</h2>
+<p>Наступило счастье? Скорее всего нет. В реальной жизни почти всегда почему-то недостаточно дёрнуть финализатор перед смертью. Ситуаций где это достаточно и необходимо станет совсем не много. Если начать задумываться о том что в ходе выполнения программы возникают исключения, то почему-то сразу начинает требоваться ловить эти исключения и передавать в другой тред, откладывать исключения до момента пока не закончится вон та очень важная операция и многое другое, типа таймеров, юзер-интерапта и прочего <code>KillThread</code>. Также очень часто приходится работать не с одной монадой, а со стеком монадных трансформеров. Трансформер на вершине стека не зависит от конкретной монады нижнего уровня и опирается лишь на констрейнты, которыми он её ограничивает. Итого: нужно обрабатывать исключения в рамках <code>Managed</code>, а не только вызывать финализацию, нужны инстансы <code>MonadCatch</code> и <code>MonadMask</code> для <code>Managed</code>. А вот тут возникают проблемы.</p>
+<ul>
+<li><p>В числе законов <code>MonadCatch</code> указан только:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">catch (throwM e) f <span class="fu">=</span> f e</code></pre></div>
+<p>который выполнить довольно легко, но если не обеспечить также поведение вида:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">catch (try meval) f <span class="fu">&gt;&gt;</span> throwM e <span class="fu">=</span> throwM e</code></pre></div>
+<p>то скорее всего люди столкнувшись с таким <code>catch</code>’ем будут озадачены настолько что отрубят автору такого инстанса руки. Но для <code>Managed</code> следующее связанное выражение выполняется не после текущего, а внутри. Так что если обернуть его целиком в <code>catch</code>, то мы заодно обернём в <code>catch</code> и все последующие связанные выражения в этой монаде и получится что-то вроде такого поведения.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">catch (try meval) f <span class="fu">&gt;&gt;</span> throwM e <span class="fu">=</span> f e</code></pre></div></li>
+<li><p>Если оборачивать в <code>catch</code> <code>Managed</code>-выражение, должны быть перехвачены исключение возникшие только до следующего связывания или в финализаторе тоже?</p></li>
+</ul>
+<p>Можно попытаться вспомнить что <code>Managed</code>, это в теории такой специализированный вид монады <code>ContT</code> из <a href="http://hackage.haskell.org/package/transformers">transfomers</a>, а в <a href="http://hackage.haskell.org/package/exceptions">exceptions</a> есть необходимые инстансы для стандартных монад. Но если посмотреть туда, станет понятно что <code>ContT</code> чуть ли не единственная монада оттуда для которой Эдвард Кметт не придумал <code>MonadCatch</code> и <code>MonadMask</code>. В общем случае решить эти вопросы довольно трудно, традиционно принято их не решать вообще и пользоваться либо <a href="http://hackage.haskell.org/package/managed">managed</a>, либо <a href="http://hackage.haskell.org/package/exceptions">exceptions</a>.</p>
+<h2 id="костыли">Костыли</h2>
+<p>Что делать если очень хочется? Для начала попробуем себя уговорить, что проблемы нет. Начнём со второго вопроса. Итак, по сути каждое вычисление в <code>Managed</code> состоит из самого «вычисления» и некоего «финализатора», который выполнится после того как выполнятся все связанные вычисления.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    <span class="dt">Managed</span> <span class="fu">$</span> \следующее <span class="ot">-&gt;</span> вычисление <span class="fu">&gt;&gt;=</span> следующее <span class="fu">&gt;&gt;</span> финализатор</code></pre></div>
+<p>Традиционный <code>withSome</code> выглядит примерно так:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    withSome eval <span class="fu">=</span> bracket
+        resourceInitialize
+        (\resource <span class="ot">-&gt;</span> finalize resource)
+        (\resource <span class="ot">-&gt;</span> eval resource)</code></pre></div>
+<p>При таком подходе финализация вообще замаскирована от любых исключений. Даже если он реализован иначе, то всё же стоит думать что автор не дурак и написал смарт-конструктор с безопасным финализатором, раз уж решено пользоваться им. Потому что если это не так, то вместо него стоило бы написать свой. Таким образом исключения могут возникнуть только внутри «вычисления».</p>
+<p>Хорошо. Как в таком случае обернуть в <code>catch</code> только половину функции, которая соответствует только нашему «вычислению»? Наверное никак. Но вместо этого мы можем попробовать инвалидировать финализатор.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="ot">{-# LANGUAGE Rank2Types #-}</span>
+
+<span class="fu">&gt;</span> <span class="kw">import </span><span class="dt">Control.Exception</span> ( allowInterrupt )
+<span class="fu">&gt;</span> <span class="kw">import </span><span class="dt">Data.IORef</span>
+<span class="fu">&gt;</span> <span class="kw">import </span><span class="dt">Control.Monad.Catch</span>
+<span class="fu">&gt;</span> <span class="kw">import </span><span class="dt">Control.Monad.Managed</span></code></pre></div>
+<p>Чтобы быть <code>MonadCatch</code>, надо сначала стать <code>MonadThrow</code>. Но тут всё очевидно.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="kw">instance</span> <span class="dt">MonadThrow</span> <span class="dt">Managed</span> <span class="kw">where</span>
+<span class="fu">&gt;</span>     throwM <span class="fu">=</span> liftIO <span class="fu">.</span> throwM</code></pre></div>
+<p>Затем изобразим функцию <code>catch</code> для типов, которые скрывает <code>Managed</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span><span class="ot"> managedCatch ::</span> <span class="dt">Exception</span> e <span class="ot">=&gt;</span> ((a <span class="ot">-&gt;</span> <span class="dt">IO</span> r) <span class="ot">-&gt;</span> <span class="dt">IO</span> r) <span class="ot">-&gt;</span> (e <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">IO</span> r) <span class="ot">-&gt;</span> <span class="dt">IO</span> r) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">IO</span> r) <span class="ot">-&gt;</span> <span class="dt">IO</span> r
+<span class="fu">&gt;</span> managedCatch eval handler next <span class="fu">=</span> <span class="kw">do</span>
+<span class="fu">&gt;</span>     ref <span class="ot">&lt;-</span> newIORef handler
+<span class="fu">&gt;</span>     <span class="kw">let</span> handler&#39; e n <span class="fu">=</span> readIORef ref <span class="fu">&gt;&gt;=</span> \h <span class="ot">-&gt;</span> h e n
+<span class="fu">&gt;</span>     catch (eval (\v <span class="ot">-&gt;</span> mask_ (writeIORef ref (\e _ <span class="ot">-&gt;</span> throwM e)) <span class="fu">&gt;&gt;</span> next v)) (\e <span class="ot">-&gt;</span> handler&#39; e next)</code></pre></div>
+<p>Ну и сам инстанс будет выглядеть как-то так:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="kw">instance</span> <span class="dt">MonadCatch</span> <span class="dt">Managed</span> <span class="kw">where</span>
+<span class="fu">&gt;</span>     catch eval handler <span class="fu">=</span> managed <span class="fu">$</span> managedCatch (with eval) (with <span class="fu">.</span> handler)</code></pre></div>
+<p>Всё. Можно перехватывать и обрабатывать исключения. У этого подхода есть как минимум следующие недостатки:</p>
+<ul>
+<li>Нужна целая одна переменная. Кметту можно даже не пытаться показывать — проклянёт.</li>
+<li>Всё вычисления от момента использования <code>catch</code> и до последнего связанного выражения на самом деле завёрнуто в <code>catch</code>, а если их несколько штук к ряду то на самом деле это матрёшка. И тут возникает нюанс: я точно не знаю как устроена обработка исключений в ghc, но все известные мне реализации <code>catch</code> подразумевают если и не копирование всего стека перед вхождением <code>catch</code>, то хотя бы его заморозку. Иначе не получится вернутся к состоянию стека до вызова <code>catch</code>. В общем случае это значит, что часть объектов на стеке будут удерживаться даже если бы в любом другом случае их собрал gc. Здесь же это удерживание будет продолжаться дольше чем надо вплоть до самого конца региона. Это проблема. Но с другой стороны это проблема не только данного решения, но и функций <code>withSomeThing</code> вообще так что хрен с ним.</li>
+<li>Если асинхронное исключение прилетит после того после того как завершилось «вычисление», но до того как отработает маскировка, будет вызван оригинальный обработчик исключения, который сделает что-то. Беда-огорчение.</li>
+</ul>
+<p>Этот уровень можно считать условно пройденным. Дальше <code>MonadMask</code> и с ним всё хуже.</p>
+<p>Попробуем понять, что должна делать и чего делать не должна функция <code>mask</code> для <code>Managed</code>. Видимо исходя из предположения в начале она должна маскировать «вычисление» и не маскировать «финализатор». Почему нужно не маскировать «финализатор»?</p>
+<ul>
+<li>Чтобы создать гомогенность поведения и не порождать неожиданных эффектов в конце выполняемого блока <code>catch</code> не ловит исключения в «финализаторе», а <code>mask</code> не маскирует «финализатор».</li>
+<li>Для безопасности. Мы снова возвращаемся к тому вопросу, что «финализатор» написан человеком, который представляет себе как надо выделять и освобождать ресурс. Вероятнее всего он уже замаскирован, но если это не так, то для этого скорее всего были веские причины.</li>
+</ul>
+<p>Проблема в том, что <code>mask</code> маскирует функцию, а с точки зрения кода «вычисление» и «финализатор» это одна функция и замаскировать её мы можем только целиком. Хорошо, расчехляем <code>allowInterrupt</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span><span class="ot"> managedMask ::</span> ((forall b<span class="fu">.</span> <span class="dt">Managed</span> b <span class="ot">-&gt;</span> <span class="dt">Managed</span> b) <span class="ot">-&gt;</span> <span class="dt">Managed</span> a) <span class="ot">-&gt;</span> <span class="dt">Managed</span> a
+<span class="fu">&gt;</span> managedMask eval <span class="fu">=</span>
+<span class="fu">&gt;</span>     managed <span class="fu">$</span> \next <span class="ot">-&gt;</span>
+<span class="fu">&gt;</span>         mask <span class="fu">$</span> \unmask <span class="ot">-&gt;</span>
+<span class="fu">&gt;</span>             with (eval <span class="fu">$</span> managedRestore unmask) <span class="fu">$</span> \resource <span class="ot">-&gt;</span> <span class="kw">do</span>
+<span class="fu">&gt;</span>                 v <span class="ot">&lt;-</span> unmask (next resource)
+<span class="fu">&gt;</span>                 allowInterrupt
+<span class="fu">&gt;</span>                 return v
+
+<span class="fu">&gt;</span><span class="ot"> managedRestore ::</span> (forall a<span class="fu">.</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a) <span class="ot">-&gt;</span> <span class="dt">Managed</span> b <span class="ot">-&gt;</span> <span class="dt">Managed</span> b
+<span class="fu">&gt;</span> managedRestore oldRestore eval <span class="fu">=</span> managed <span class="fu">$</span> \next <span class="ot">-&gt;</span> oldRestore <span class="fu">$</span> with eval next</code></pre></div>
+<p>Всё? Нет. Нужен ещё <code>uninterruptibleMask</code>. Он понятное дело выглядит абсолютно аналогично предыдущему коду, но есть одно но: <code>allowInterrupt</code> не производит никакого эффекта будучи вызванным из <code>uninterruptibleMask</code>. Другого способа размаскировать «финализатор» я не знаю и если по какой-то причине он зависнет то это уже навсегда. Кроме того это создаёт ощутимую разницу с <code>mask</code> в поведении. Что делать?</p>
+<ul>
+<li>Гомогенезировать поведение. Разрешить <code>mask</code> маскировать «финализатор», a <code>catch</code> ловить исключения в финализаторе. Это не сложно, но я уверен что это не совсем то поведение, которое хотелось бы видеть.</li>
+<li>Пойти на сомнительную сделку с собственной совестью и решить что <code>uninterruptibleMask</code> всё равно никто толком не использует примерно никогда, а если и использует то на коротких, гарантированно завершающихся функциях, у которых почти наверняка нет «финализатора».</li>
+<li>Страдать и признать поражение и страдать.</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="kw">instance</span> <span class="dt">MonadMask</span> <span class="dt">Managed</span> <span class="kw">where</span>
+<span class="fu">&gt;</span>     mask                <span class="fu">=</span> managedMask
+<span class="fu">&gt;</span>     uninterruptibleMask <span class="fu">=</span>
+<span class="fu">&gt;</span>         \eval <span class="ot">-&gt;</span> managed <span class="fu">$</span> \next <span class="ot">-&gt;</span>
+<span class="fu">&gt;</span>             uninterruptibleMask <span class="fu">$</span> \unmask <span class="ot">-&gt;</span>
+<span class="fu">&gt;</span>                 with (eval <span class="fu">$</span> managedRestore unmask) <span class="fu">$</span> (unmask <span class="fu">.</span> next)</code></pre></div>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>Также важным недостатком данной схемы является то что можно вернуть ресурс из блока кода после того как отработали все финализаторы и он в лучшем случае больше недоступен. Но во-первых насколько я понимаю эта проблема характерна и для resourcet-подобных решений, во-вторых это совсем другая долгая и печальная история.<a href="#fnref1">↩</a></p></li>
+</ol>
+</div>]]></summary>
+</entry>
+<entry>
     <title>Список реакци которые мне доводилось ставить</title>
     <link href="https://ndtimofeev.github.io/ru/posts/2015-12-27-reaction-list.html" />
     <id>https://ndtimofeev.github.io/ru/posts/2015-12-27-reaction-list.html</id>
@@ -439,6 +589,132 @@
 <li><dl>
 <dt><a href="https://ru.wikipedia.org/wiki/Вельд_(фильм)">Вельд (1997)</a></dt>
 <dd>Длительность: 81 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Луна_2112">Луна 2112 (2009)</a></dt>
+<dd>Длительность: 97 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Мачете_(фильм)">Мачете (2010)</a></dt>
+<dd>Длительность: 105 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Мачете_убивает">Мачете убивает (2013)</a></dt>
+<dd>Длительность: 107 мин
+</dd>
+</dl></li>
+<li><a href="https://ru.wikipedia.org/wiki/Бомж_с_дробовиком">Бомж с дробовиком (2011)</a></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Город_грехов_(фильм)">Город грехов (2005)</a></dt>
+<dd>Длительность: 124 или 142 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Достучаться_до_небес_(фильм)">Достучаться до небес (1997)</a></dt>
+<dd>Длительность: 87 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Корпорация_«Бессмертие»_(фильм)">Корпорация «Бессмертие» (1992)</a></dt>
+<dd>Длительность: 110 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Бегущий_по_лезвию">Бегущий по лезвию (1982)</a></dt>
+<dd>Длительность: 117 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Плоть_и_кровь">Плоть и кровь (1985)</a></dt>
+<dd>Длительность: 126 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Попутчик_(фильм,_1986,_США)">Попутчик (1986)</a></dt>
+<dd>Длительность: 97 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Кровь_героев">Кровь героев (1989)</a></dt>
+<dd>Длительность: 90 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Считанные_секунды">Считанные секунды (1992)</a></dt>
+<dd>Длительность: 91 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Хеллбой_2:_Золотая_армия">Хеллбой 2: Золотая армия (2008)</a></dt>
+<dd>Длительность: 115 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Крепость_(фильм,_1993)">Крепость (1993)</a></dt>
+<dd>Длительность: 91 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Горец_3:_Последнее_измерение">Горец 3: Последнее измерение (1994)</a></dt>
+<dd>Длительность: 99 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Беовульф_(фильм,_1999)">Беовульф (1999)</a></dt>
+<dd>Длительность: 95 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Беовульф_(фильм,_2007)">Беовульф (2007)</a></dt>
+<dd>Длительность: 113 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Из_машины">Из машины (2015)</a></dt>
+<dd>Длительность: 108 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Чекист_(фильм)">Чекист (1992)</a></dt>
+<dd>Длительность: 91 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Кочегар_(фильм)">Кочегар (2010)</a></dt>
+<dd>Длительность: 87 мин
+</dd>
+<dd>Балобанов
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Про_уродов_и_людей">Про уродов и людей (1998)</a></dt>
+<dd>Балобанов, Маковецкий, Сухоруков
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Я_тоже_хочу">Я тоже хочу (2012)</a></dt>
+<dd>Длительность: 80 мин
+</dd>
+<dd>Балобанов
+</dd>
+</dl></li>
+<li><a href="https://ru.wikipedia.org/wiki/До_первой_крови">До первой крови (1989)</a></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Счастливые_дни_(фильм,_1991)">Счастливые дни (1991)</a></dt>
+<dd>Длительность: 82 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Замок_(фильм,_1994)">Замок (1994)</a></dt>
+<dd>Длительность: 110 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Морфий_(фильм)">Морфий (2008)</a></dt>
+<dd>Длительность: 112 мин
 </dd>
 </dl></li>
 </ul>]]></summary>
