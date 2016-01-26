@@ -8,8 +8,103 @@
         <name>Nikita Timofeev</name>
         <email>ndtimofeev@gmail.com</email>
     </author>
-    <updated>2015-12-11T00:00:00Z</updated>
+    <updated>2016-01-26T00:00:00Z</updated>
     <entry>
+    <title>Моему другу Серёже Алирзаеву посвящается…</title>
+    <link href="https://ndtimofeev.github.io/ru/posts/2016-01-26-l29ah.html" />
+    <id>https://ndtimofeev.github.io/ru/posts/2016-01-26-l29ah.html</id>
+    <published>2016-01-26T00:00:00Z</published>
+    <updated>2016-01-26T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>Понапридумывали расширений!</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="ot">{-# LANGUAGE DataKinds #-}</span>
+<span class="fu">&gt;</span> <span class="ot">{-# LANGUAGE GADTs #-}</span>
+<span class="fu">&gt;</span> <span class="ot">{-# LANGUAGE TypeOperators #-}</span>
+<span class="fu">&gt;</span> <span class="ot">{-# LANGUAGE KindSignatures #-}</span>
+<span class="fu">&gt;</span> <span class="ot">{-# LANGUAGE StandaloneDeriving #-}</span>
+<span class="fu">&gt;</span> <span class="ot">{-# LANGUAGE DeriveFunctor #-}</span>
+<span class="fu">&gt;</span> <span class="ot">{-# LANGUAGE TypeFamilies #-}</span>
+<span class="fu">&gt;</span> <span class="ot">{-# LANGUAGE UndecidableInstances #-}</span>
+<span class="fu">&gt;</span> <span class="ot">{-# LANGUAGE DeriveTraversable #-}</span>
+
+<span class="fu">&gt;</span> <span class="kw">import </span><span class="dt">Data.Foldable</span>
+<span class="fu">&gt;</span> <span class="kw">import </span><span class="dt">Data.Proxy</span>
+
+<span class="fu">&gt;</span> <span class="kw">import </span><span class="dt">GHC.TypeLits</span>
+
+<span class="fu">&gt;</span> <span class="kw">data</span> <span class="dt">Peano</span> <span class="fu">=</span> <span class="dt">Z</span> <span class="fu">|</span> <span class="dt">S</span> <span class="dt">Peano</span>
+<span class="fu">&gt;</span>     <span class="kw">deriving</span> <span class="dt">Show</span>
+
+<span class="fu">&gt;</span> <span class="kw">data</span> <span class="dt">FixedList</span> (<span class="ot">n ::</span> <span class="dt">Peano</span>) a <span class="kw">where</span>
+<span class="fu">&gt;</span>     <span class="dt">Nil</span><span class="ot">  ::</span> <span class="dt">FixedList</span> <span class="dt">Z</span> a
+<span class="fu">&gt;</span><span class="ot">     (:.) ::</span> a <span class="ot">-&gt;</span> <span class="dt">FixedList</span> n a <span class="ot">-&gt;</span> <span class="dt">FixedList</span> (<span class="dt">S</span> n) a
+
+<span class="fu">&gt;</span> <span class="kw">infixr</span> <span class="dv">5</span> <span class="fu">:.</span>
+
+<span class="fu">&gt;</span> <span class="kw">deriving</span> <span class="kw">instance</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> <span class="dt">Show</span> (<span class="dt">FixedList</span> n a)
+<span class="fu">&gt;</span> <span class="kw">deriving</span> <span class="kw">instance</span> <span class="dt">Eq</span> a <span class="ot">=&gt;</span> <span class="dt">Eq</span> (<span class="dt">FixedList</span> n a)
+<span class="fu">&gt;</span> <span class="kw">deriving</span> <span class="kw">instance</span> <span class="dt">Functor</span> (<span class="dt">FixedList</span> n)
+<span class="fu">&gt;</span> <span class="kw">deriving</span> <span class="kw">instance</span> <span class="dt">Foldable</span> (<span class="dt">FixedList</span> n)
+<span class="fu">&gt;</span> <span class="kw">deriving</span> <span class="kw">instance</span> <span class="dt">Traversable</span> (<span class="dt">FixedList</span> n)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">λ<span class="fu">&gt;</span> fmap (<span class="fu">+</span><span class="dv">1</span>) (<span class="dv">1</span> <span class="fu">:.</span> <span class="dv">2</span> <span class="fu">:.</span> <span class="dv">3</span> <span class="fu">:.</span> <span class="dt">Nill</span>)
+<span class="co">-- (2 :. 3 :. 4 :. Nill)</span>
+
+λ<span class="fu">&gt;</span> find (<span class="fu">==</span><span class="dv">2</span>) (<span class="dv">1</span> <span class="fu">:.</span> <span class="dv">2</span> <span class="fu">:.</span> <span class="dv">3</span> <span class="fu">:.</span> <span class="dt">Nill</span>)
+<span class="co">-- Just 2</span>
+
+λ<span class="fu">&gt;</span> mapM_ print (<span class="dv">1</span> <span class="fu">:.</span> <span class="dv">2</span> <span class="fu">:.</span> <span class="dv">3</span> <span class="fu">:.</span> <span class="dt">Nill</span>)
+<span class="co">-- 1</span>
+<span class="co">-- 2</span>
+<span class="co">-- 3</span></code></pre></div>
+<p>Вроде норм.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">sumOurSpecialFixedList ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span>
+     <span class="dt">FixedList</span>
+       (<span class="ch">&#39;S</span>
+          (<span class="ch">&#39;S</span>
+             (<span class="ch">&#39;S</span>
+                (<span class="ch">&#39;S</span>
+                   (<span class="ch">&#39;S</span>
+                      (<span class="ch">&#39;S</span>
+                         (<span class="ch">&#39;S</span>
+                            (<span class="ch">&#39;S</span>
+                               (<span class="ch">&#39;S</span>
+                                  (<span class="ch">&#39;S (&#39;</span><span class="dt">S</span> (<span class="ch">&#39;S (&#39;</span><span class="dt">S</span> (<span class="ch">&#39;S (&#39;</span><span class="dt">S</span> (<span class="ch">&#39;S (&#39;</span><span class="dt">S</span> (<span class="ch">&#39;S (&#39;</span><span class="dt">S</span> (<span class="ch">&#39;S &#39;</span><span class="dt">Z</span>))))))))))))))))))))
+       a
+     <span class="ot">-&gt;</span> a
+sumOurSpecialFixedList <span class="fu">=</span> sum</code></pre></div>
+<p>Чо?</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="kw">type</span> family <span class="dt">N2P</span> (<span class="ot">n ::</span> <span class="dt">Nat</span>) <span class="kw">where</span>
+<span class="fu">&gt;</span>     <span class="dt">N2P</span> <span class="dv">0</span> <span class="fu">=</span> <span class="dt">Z</span>
+<span class="fu">&gt;</span>     <span class="dt">N2P</span> n <span class="fu">=</span> <span class="dt">S</span> (<span class="dt">N2P</span> (n <span class="fu">-</span> <span class="dv">1</span>))
+
+<span class="fu">&gt;</span> <span class="kw">type</span> <span class="dt">FList</span> n <span class="fu">=</span> <span class="dt">FixedList</span> (<span class="dt">N2P</span> n)</code></pre></div>
+<p>Чо?</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">sumOurSpecialFixedList ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> <span class="dt">FList</span> <span class="dv">20</span> a <span class="ot">-&gt;</span> a
+sumOurSpecialFixedList <span class="fu">=</span> sum</code></pre></div>
+<p>Ок.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">λ<span class="fu">&gt;</span> (<span class="dv">1</span> <span class="fu">:.</span> <span class="dv">2</span> <span class="fu">:.</span> <span class="dv">3</span> <span class="fu">:.</span> <span class="dt">Nil</span>) <span class="fu">!!</span> <span class="dv">1</span>
+
+<span class="fu">&lt;</span>interactive<span class="fu">&gt;:</span><span class="dv">2</span><span class="fu">:</span><span class="dv">2</span><span class="fu">:</span>
+    <span class="dt">Couldn&#39;t</span> match expected <span class="kw">type</span> ‘[a]’
+                with actual <span class="kw">type</span> ‘<span class="dt">FixedList</span> (<span class="ch">&#39;S (&#39;</span><span class="dt">S</span> (<span class="ch">&#39;S &#39;</span><span class="dt">Z</span>))) <span class="dt">Integer</span>’
+    <span class="dt">Relevant</span> bindings include<span class="ot"> it ::</span> a (bound at <span class="fu">&lt;</span>interactive<span class="fu">&gt;:</span><span class="dv">2</span><span class="fu">:</span><span class="dv">1</span>)
+    <span class="dt">In</span> the first argument <span class="kw">of</span> ‘(<span class="fu">!!</span>)’, namely ‘(<span class="dv">1</span> <span class="fu">:.</span> <span class="dv">2</span> <span class="fu">:.</span> <span class="dv">3</span> <span class="fu">:.</span> <span class="dt">Nil</span>)’
+    <span class="dt">In</span> the expression<span class="fu">:</span> (<span class="dv">1</span> <span class="fu">:.</span> <span class="dv">2</span> <span class="fu">:.</span> <span class="dv">3</span> <span class="fu">:.</span> <span class="dt">Nil</span>) <span class="fu">!!</span> <span class="dv">1</span>
+    <span class="dt">In</span> an equation for ‘it’<span class="fu">:</span> it <span class="fu">=</span> (<span class="dv">1</span> <span class="fu">:.</span> <span class="dv">2</span> <span class="fu">:.</span> <span class="dv">3</span> <span class="fu">:.</span> <span class="dt">Nil</span>) <span class="fu">!!</span> <span class="dv">1</span></code></pre></div>
+<p>Ле!</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="kw">type</span> family <span class="dt">P2N</span> (<span class="ot">n ::</span> <span class="dt">Peano</span>) <span class="kw">where</span>
+<span class="fu">&gt;</span>     <span class="dt">P2N</span> <span class="dt">Z</span>     <span class="fu">=</span> <span class="dv">0</span>
+<span class="fu">&gt;</span>     <span class="dt">P2N</span> (<span class="dt">S</span> n) <span class="fu">=</span> <span class="dv">1</span> <span class="fu">+</span> <span class="dt">P2N</span> n
+
+<span class="fu">&gt;</span><span class="ot"> findex ::</span> (<span class="dt">KnownNat</span> n, n <span class="fu">+</span> <span class="dv">1</span> <span class="fu">&lt;=</span> <span class="dt">P2N</span> m) <span class="ot">=&gt;</span> <span class="dt">Proxy</span> n <span class="ot">-&gt;</span> <span class="dt">FixedList</span> m a <span class="ot">-&gt;</span> a
+<span class="fu">&gt;</span> findex proxy xs <span class="fu">=</span> toList xs <span class="fu">!!</span> fromInteger (natVal proxy)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">λ<span class="fu">&gt;</span> <span class="fu">:</span>set <span class="fu">-</span><span class="dt">XDataKinds</span>
+λ<span class="fu">&gt;</span> findex  (<span class="dt">Proxy</span><span class="ot"> ::</span> <span class="dt">Proxy</span> <span class="dv">2</span>) (<span class="dv">1</span> <span class="fu">:.</span> <span class="dv">2</span> <span class="fu">:.</span> <span class="dv">3</span> <span class="fu">:.</span> <span class="dt">Nil</span>)
+<span class="co">-- 3</span>
+λ<span class="fu">&gt;</span> findex  (<span class="dt">Proxy</span><span class="ot"> ::</span> <span class="dt">Proxy</span> <span class="dv">0</span>) (<span class="dv">1</span> <span class="fu">:.</span> <span class="dv">2</span> <span class="fu">:.</span> <span class="dv">3</span> <span class="fu">:.</span> <span class="dt">Nil</span>)
+<span class="co">-- 1</span></code></pre></div>
+<p>Пук. Пёрд. Среньк. Ко-ко-ко-зависимые-типы.</p>]]></summary>
+</entry>
+<entry>
     <title>О MskHUG в декабре 2015го года…</title>
     <link href="https://ndtimofeev.github.io/ru/posts/2015-12-11-meetup.html" />
     <id>https://ndtimofeev.github.io/ru/posts/2015-12-11-meetup.html</id>

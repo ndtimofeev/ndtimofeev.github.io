@@ -30,7 +30,7 @@
 
 
 <p>Есть такой классный человек — <a href="http://www.haskellforall.com/">Gabriel Gonzalez</a>. Он делает с Haskell довольно классные и простые вещи. Зачастую ими совершенно никто не пользуется, но тем не менее они есть и на них стоит посмотреть хотя бы для того чтобы проникнуться и не делать из Хаскеля промышленную Яву. В частности именно он является автором пакета <a href="http://hackage.haskell.org/package/managed">managed</a>, который позволяет <del>экономить отступы</del> управлять ресурсами довольно своеобразным способом.</p>
-<h2 id="что-такое-managed">Что такое Managed?</h2>
+<h2 id="foo">Что такое Managed?</h2>
 <p>Положим у есть файл. и нужно с ним сделать что-то хорошее. Файл надо открыть, получить его <code>Handle</code>, сделать с ним что-то и закрыть. Примерно так:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    hnd <span class="ot">&lt;-</span> openFile <span class="st">&quot;path/to/file&quot;</span> <span class="dt">ReadMode</span>
     hPutStrLn hnd <span class="st">&quot;\1051\1103\1093, \1080\1076\1080 \1085\1072 \1093\1091\1081&quot;</span>
