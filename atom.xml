@@ -8,8 +8,218 @@
         <name>Nikita Timofeev</name>
         <email>ndtimofeev@gmail.com</email>
     </author>
-    <updated>2016-01-26T00:00:00Z</updated>
+    <updated>2016-05-20T00:00:00Z</updated>
     <entry>
+    <title>О том как избежать успеха и как не избежать успеха…</title>
+    <link href="https://ndtimofeev.github.io/ru/posts/2016-05-20-GHC8-callstack.html" />
+    <id>https://ndtimofeev.github.io/ru/posts/2016-05-20-GHC8-callstack.html</id>
+    <published>2016-05-20T00:00:00Z</published>
+    <updated>2016-05-20T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>При всём богатстве возможностей в Haskell регулярно возникают проблемы с вещами, которые кажутся совершенно элементарными. Например получить стек вызовов в случае ошибки. Причём не то что бы его нельзя получить совсем, наоборот есть как минимум два ортогональных способа, но всё это сопряжено с таким количеством сложностей и условий, что проще воткнуть в нужные места printf’ы или густо обмазываться препроцессором. Особенно грустно дело с этим обстояло в ghci.</p>
+<p>И вот для пользователей ghci наступает <a href="http://simonmar.github.io/posts/2016-02-12-Stack-traces-in-GHCi.html">революция</a>. Казалось бы страдания остались в прошлом, а <code>error</code> и <code>undefined</code> обрели практическое применение. Однако первая же попытка использовать это в массиве написанного кода обернулась неудачей: <code>error</code> и <code>undefined</code> выдавали стек вызовов, а броски исключения — нет. Сначала я подозревал себя в том, что куда-то не включил профилировочную информацию или как-то не так использую ImplicitParams, но потом я просто полез в код.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    <span class="co">-- ./libraries/base/GHC/Err.hs:77</span>
+<span class="ot">    undefined ::</span> forall (<span class="ot">r ::</span> <span class="dt">RuntimeRep</span>)<span class="fu">.</span> forall (<span class="ot">a ::</span> <span class="dt">TYPE</span> r)<span class="fu">.</span>
+                 <span class="dt">HasCallStack</span> <span class="ot">=&gt;</span> a
+    undefined <span class="fu">=</span>  error <span class="st">&quot;Prelude.undefined&quot;</span></code></pre></div>
+<p>Тут всё понятно: <code>undefined</code> это такой частный случай <code>error</code> для тех кому не хватило фантазии написать осмысленное сообщение. Улыбаемся “Prelude.undefined” и двигаемся дальше.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    <span class="co">-- ./libraries/base/GHC/Err.hs:36</span>
+<span class="ot">    error ::</span> forall (<span class="ot">r ::</span> <span class="dt">RuntimeRep</span>)<span class="fu">.</span> forall (<span class="ot">a ::</span> <span class="dt">TYPE</span> r)<span class="fu">.</span>
+             <span class="dt">HasCallStack</span> <span class="ot">=&gt;</span> [<span class="dt">Char</span>] <span class="ot">-&gt;</span> a
+    error s <span class="fu">=</span> raise<span class="fu">#</span> (errorCallWithCallStackException s <span class="fu">?</span>callStack)</code></pre></div>
+<p>Тут в принципе ожидалось увидеть что-то вроде <code>throw . ErrorCall</code>, но не оно. С другой стороны <code>raise#</code> это такой primop, который реализует throw, так что <code>errorCallWithCallStackException</code> должен быть таким замысловатым способом сконструировать исключение. За подтверждением лезем в <code>GHC.Exception</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    <span class="co">-- ./libraries/base/GHC/Exception.hs:171</span>
+    <span class="kw">data</span> <span class="dt">ErrorCall</span> <span class="fu">=</span> <span class="dt">ErrorCallWithLocation</span> <span class="dt">String</span> <span class="dt">String</span>
+        <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>)
+
+    pattern <span class="dt">ErrorCall</span><span class="ot"> ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">ErrorCall</span>
+    pattern <span class="dt">ErrorCall</span> err <span class="ot">&lt;-</span> <span class="dt">ErrorCallWithLocation</span> err _ <span class="kw">where</span>
+      <span class="dt">ErrorCall</span> err <span class="fu">=</span> <span class="dt">ErrorCallWithLocation</span> err <span class="st">&quot;&quot;</span>
+
+    <span class="kw">instance</span> <span class="dt">Exception</span> <span class="dt">ErrorCall</span>
+
+    <span class="kw">instance</span> <span class="dt">Show</span> <span class="dt">ErrorCall</span> <span class="kw">where</span>
+      showsPrec _ (<span class="dt">ErrorCallWithLocation</span> err <span class="st">&quot;&quot;</span>) <span class="fu">=</span> showString err
+      showsPrec _ (<span class="dt">ErrorCallWithLocation</span> err loc) <span class="fu">=</span> showString (err <span class="fu">++</span> <span class="ch">&#39;\n&#39;</span> <span class="fu">:</span> loc)
+
+<span class="ot">    errorCallException ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">SomeException</span>
+    errorCallException s <span class="fu">=</span> toException (<span class="dt">ErrorCall</span> s)</code></pre></div>
+<p>Первое что нас удивляет: конструктор <code>ErrorCall</code> теперь называется как-то по другому и таскает не одну строчку, а два. Впрочем если посмотреть <a href="http://mpickering.github.io/posts/2015-12-12-pattern-synonyms-8.html">тут</a> то фокус с конструктором и синонимом становится понятен.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    <span class="co">-- ./libraries/base/GHC/Exception.hs:187</span>
+<span class="ot">    errorCallWithCallStackException ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">CallStack</span> <span class="ot">-&gt;</span> <span class="dt">SomeException</span>
+    errorCallWithCallStackException s stk <span class="fu">=</span> unsafeDupablePerformIO <span class="fu">$</span> <span class="kw">do</span>
+      ccsStack <span class="ot">&lt;-</span> currentCallStack
+      <span class="kw">let</span>
+        implicitParamCallStack <span class="fu">=</span> prettyCallStackLines stk
+        ccsCallStack <span class="fu">=</span> showCCSStack ccsStack
+        stack <span class="fu">=</span> intercalate <span class="st">&quot;\n&quot;</span> <span class="fu">$</span> implicitParamCallStack <span class="fu">++</span> ccsCallStack
+      return <span class="fu">$</span> toException (<span class="dt">ErrorCallWithLocation</span> s stack)</code></pre></div>
+<p>Теперь собственно виновник торжества. Получаем явный стек в качестве переменной, достаём стек профилировщика хакнув IO, красиво рисуем, склеиваем, запихиваем в расширенный <code>ErrorCall</code> вместе с сообщением, заворачиваем в <code>SomeException</code>. Если посмотреть на инстанс <code>Show</code> для <code>ErrorCall</code>, то можно увидеть код, который рисует стек если соответствующее поле заполнено. Снаружи никаких изменений в <code>ErrorCall</code> не видно. Отличный пример того как можно при помощи паттерн-синонимов в GHC8 можно изобразить инкапсуляцию. Теперь смотрим на <code>throw</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    <span class="co">-- ./libraries/base/GHC/Exception.hs:166</span>
+<span class="ot">    throw ::</span> <span class="dt">Exception</span> e <span class="ot">=&gt;</span> e <span class="ot">-&gt;</span> a
+    throw e <span class="fu">=</span> raise<span class="fu">#</span> (toException e)</code></pre></div>
+<p>Ну конечно. Тут просто неоткуда взяться стек-трейсу. Да как бы он хранился в исключение произвольного типа? Разве что как-то так:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    <span class="kw">data</span> <span class="dt">SomeException</span> <span class="kw">where</span>
+        <span class="dt">SomeExceptionWithLocation</span><span class="ot"> ::</span> <span class="dt">Exception</span> e <span class="ot">=&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> e <span class="ot">-&gt;</span> <span class="dt">SomeException</span>
+
+    pattern <span class="dt">SomeException</span><span class="ot"> ::</span> () <span class="ot">=&gt;</span> <span class="dt">Exception</span> e <span class="ot">=&gt;</span> e <span class="ot">-&gt;</span> <span class="dt">SomeException</span>
+    pattern <span class="dt">SomeException</span> err <span class="ot">&lt;-</span> <span class="dt">SomeExceptionWithLocation</span> _ err <span class="kw">where</span>
+      <span class="dt">SomeException</span> err <span class="fu">=</span> <span class="dt">SomeExceptionWithLocation</span> <span class="st">&quot;&quot;</span> err</code></pre></div>]]></summary>
+</entry>
+<entry>
+    <title>Поиск устройств на шине 1-wire</title>
+    <link href="https://ndtimofeev.github.io/ru/posts/2016-02-20-1-wire-search.html" />
+    <id>https://ndtimofeev.github.io/ru/posts/2016-02-20-1-wire-search.html</id>
+    <published>2016-02-20T00:00:00Z</published>
+    <updated>2016-02-20T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>Поиск устройств на шине 1-wire считается делом не простым и замысловатым. Причиной этого является 64-битный размер идентификатора (на самом деле 8-бит это CRC, но в данном случае это не играет роли) и опросить все возможные идентификаторы на предмет их присутствия на шине за вменяемое время не представляется возможным.</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="co">// Пишем функции — затычки для взаимодействия с несуществующей у нас переферией.</span>
+<span class="kw">fn</span> one_wire_reset(){}
+<span class="kw">fn</span> is_presance() -&gt; <span class="dt">bool</span> { <span class="cn">true</span> }
+<span class="kw">fn</span> one_wire_write( c: <span class="dt">u8</span> ){}
+<span class="kw">fn</span> read_bit() -&gt; <span class="dt">u8</span> { <span class="dv">1</span> }
+<span class="kw">fn</span> read_unbit() -&gt; <span class="dt">u8</span> { <span class="dv">0</span> }
+
+<span class="kw">struct</span> SearchState {
+    last_device_flag: <span class="dt">u8</span>,
+    last_discrepancy: <span class="dt">u8</span>,
+    search_direction: <span class="dt">u8</span>,
+    rom_no: <span class="dt">u64</span>
+}
+
+<span class="kw">enum</span> SearchResult {
+    NotFound,
+    Rom( <span class="dt">u64</span> )
+}
+
+<span class="kw">fn</span> search_rom( state: &amp;<span class="kw">mut</span> SearchState ) -&gt; SearchResult
+{
+    <span class="kw">let</span> <span class="kw">mut</span> last_zero: <span class="dt">u8</span> = <span class="dv">0</span>;
+    <span class="kw">let</span> <span class="kw">mut</span> result        = SearchResult::NotFound;
+
+<span class="co">// Сбрасываем шину.</span>
+    one_wire_reset();
+
+    <span class="kw">if</span> is_presance() &amp;&amp; state.last_device_flag != <span class="dv">1</span>
+    {
+
+<span class="co">// Запускаем процесс поиска.</span>
+        one_wire_write( <span class="dv">0x0F</span> );
+
+        <span class="kw">for</span> id_bit_number <span class="kw">in</span> <span class="dv">1.</span>.<span class="dv">64</span> {
+            <span class="kw">let</span> id_bit     = read_bit();
+            <span class="kw">let</span> cmp_id_bit = read_unbit();
+
+            <span class="kw">if</span> id_bit == <span class="dv">1</span> &amp;&amp; cmp_id_bit == <span class="dv">1</span>
+            {
+                <span class="kw">break</span>;
+            }
+
+            state.search_direction =
+                <span class="kw">match</span> id_bit_number {
+                    _ <span class="kw">if</span> id_bit != cmp_id_bit                    =&gt; id_bit,
+                    _ <span class="kw">if</span> id_bit_number == state.last_discrepancy =&gt; <span class="dv">1</span>,
+                    _ <span class="kw">if</span> id_bit_number &gt; state.last_discrepancy  =&gt; <span class="dv">0</span>,
+                    _                                            =&gt;
+                        <span class="kw">if</span> state.rom_no &amp; (<span class="dv">1</span> &lt;&lt; id_bit_number <span class="kw">as</span> <span class="dt">u64</span>) == <span class="dv">0</span> { <span class="dv">0</span> } <span class="kw">else</span> { <span class="dv">1</span> }
+                };
+
+            <span class="kw">if</span> state.search_direction == <span class="dv">0</span>
+            {
+                last_zero = id_bit_number;
+                state.rom_no &amp;= !( <span class="dv">1</span> &lt;&lt; id_bit_number <span class="kw">as</span> <span class="dt">u64</span> );
+            }
+            <span class="kw">else</span>
+            {
+                state.rom_no |= <span class="dv">1</span> &lt;&lt; id_bit_number <span class="kw">as</span> <span class="dt">u64</span>;
+            }
+
+<span class="co">// Отправляем устройствам бит выбранного направления обхода.</span>
+            one_wire_write( state.search_direction );
+
+            <span class="kw">if</span> id_bit_number == <span class="dv">64</span>
+            {
+                result = SearchResult::Rom( state.rom_no );
+            }
+        }
+    }
+
+    <span class="kw">match</span> result {
+        SearchResult::Rom( _ ) =&gt;
+        {
+            state.last_discrepancy = last_zero;
+
+            <span class="kw">if</span> state.last_discrepancy == <span class="dv">0</span> { state.last_device_flag = <span class="dv">1</span> }
+        }
+        SearchResult::NotFound =&gt;
+        {
+            state.last_discrepancy = <span class="dv">0</span>;
+            state.last_device_flag = <span class="dv">0</span>;
+        }
+    }
+
+    <span class="kw">return</span> result;
+}
+
+<span class="kw">fn</span> main()
+{
+<span class="co">// Создаём начальный стейт нашего поиска.</span>
+    <span class="kw">let</span> <span class="kw">mut</span> state =
+                SearchState {
+                    last_device_flag: <span class="dv">0</span>,
+                    last_discrepancy: <span class="dv">0</span>,
+                    search_direction: <span class="dv">0</span>,
+                    rom_no: <span class="dv">0</span>
+                };
+
+<span class="co">// Ищем устройства до тех пор пока они находятся.</span>
+    <span class="kw">loop</span> {
+        <span class="kw">match</span> search_rom( &amp;<span class="kw">mut</span> state ) {
+            SearchResult::Rom( w ) =&gt; <span class="pp">println!</span>( <span class="st">&quot;{}&quot;</span>, w ),
+            SearchResult::NotFound =&gt; <span class="kw">break</span>
+        }
+    }
+}</code></pre></div>]]></summary>
+</entry>
+<entry>
+    <title>Полуэмпирические формулы</title>
+    <link href="https://ndtimofeev.github.io/ru/posts/2016-01-29-halfempirical.html" />
+    <id>https://ndtimofeev.github.io/ru/posts/2016-01-29-halfempirical.html</id>
+    <published>2016-01-29T00:00:00Z</published>
+    <updated>2016-01-29T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>Полуэмпирические формулы могут содержать три оротогональных компонента: заряды фрагментов, функциональные группы и плейсхолдеры.</p>
+<pre><code>quantifier    = nat &gt; 1
+
+signum        = &#39;+&#39; | &#39;-&#39;
+
+charge        = &#39;(&#39; &#39;+&#39; + &#39;)&#39; | &#39;(&#39; &#39;-&#39; + &#39;)&#39; | &#39;(&#39; quantifier signum &#39;)&#39; | &#39;(&#39; signum quantifier &#39;)&#39;
+
+isotope       = &#39;[&#39; nat atom &#39;]&#39; | &#39;[&#39; atom &#39;]&#39;
+
+placeholder   = &#39;[&#39; [A..z][a..z]* `notElem` element table &#39;]&#39;
+
+              | &#39;[&#39; [A..z][a..z0..9]* &#39;]&#39;
+
+atom          = [A..Z][a..z]{0,2} `elem` element table
+
+linker        = &#39;-&#39; | &#39;=&#39; | &#39;#&#39;
+
+halfempirical = linker{0,1} node linker{0,1} rest*
+
+rest          = node linker{0,1}
+
+unchargednode = isotope quantifier{0,1}
+
+              | atom quantifier{0,1}
+
+              | &#39;(&#39; linker{0,1} unchargednode  &#39;)&#39; quantifier{0,1}
+
+node          = isotope charge{0,1} quantifier{0,1}
+
+              | atom charge{0,1} quantifier{0,1}
+
+              | &#39;(&#39; halfempirical &#39;)&#39; charge{0,1} quantifier{0,1}</code></pre>]]></summary>
+</entry>
+<entry>
     <title>Моему другу Серёже Алирзаеву посвящается…</title>
     <link href="https://ndtimofeev.github.io/ru/posts/2016-01-26-l29ah.html" />
     <id>https://ndtimofeev.github.io/ru/posts/2016-01-26-l29ah.html</id>
@@ -282,6 +492,7 @@ sumOurSpecialFixedList <span class="fu">=</span> sum</code></pre></div>
 <li>Получение сложных эфиров прямой этерификацией</li>
 <li>Ацилирование по Фриделю-Крафтцу</li>
 <li>Получение алкенов дегидратированием спиртов</li>
+<li>Реакция Мицунобу</li>
 </ol>]]></summary>
 </entry>
 <entry>
@@ -315,19 +526,58 @@ sumOurSpecialFixedList <span class="fu">=</span> sum</code></pre></div>
     <updated>2015-11-09T00:00:00Z</updated>
     <summary type="html"><![CDATA[<h3 id="мне">Мне</h3>
 <ul>
-<li><a href="https://ru.wikipedia.org/wiki/Выкрикивается_лот_49">Выкрикивается лот 49</a></li>
-<li>Дневник одного гения</li>
+<li><a href="https://ru.wikipedia.org/wiki/Выкрикивается_лот_49">Выкрикивается лот 49 (1966)</a></li>
+<li><dl>
+<dt>Дневник одного гения (1964)</dt>
+<dd>Сальвадор Дали
+</dd>
+</dl></li>
+<li><a href="https://ru.wikipedia.org/wiki/Лето,_прощай!">Лето, прощай! (2006)</a></li>
+<li><a href="https://ru.wikipedia.org/wiki/451_градус_по_Фаренгейту">451°F (1953)</a></li>
+<li>Уснувший в Армагеддоне (1948)</li>
+<li>Все лето в один день (1959)</li>
+<li><a href="https://ru.wikipedia.org/wiki/Из_праха_восставшие">Из праха восставшие (2001)</a></li>
+<li><a href="https://ru.wikipedia.org/wiki/Смерть_—_дело_одинокое">Смерть — дело одинокое (1985)</a></li>
+<li><a href="https://ru.wikipedia.org/wiki/Американский_психопат_(роман)">Американский психопат (1991)</a></li>
+<li><dl>
+<dt>Автокатастрофа (1973)</dt>
+<dd>роман Джеймса Балларда
+</dd>
+</dl></li>
+<li><dl>
+<dt>Бетонный остров (1974)</dt>
+<dd>роман Джеймса Балларда
+</dd>
+</dl></li>
+<li><dl>
+<dt>Высотка (1975)</dt>
+<dd>роман Джеймса Балларда
+</dd>
+</dl></li>
+<li><a href="https://ru.wikipedia.org/wiki/Бесконечная_история_(повесть)">Бесконечная история (1979)</a></li>
+<li><a href="https://ru.wikipedia.org/wiki/Процесс_(роман)">Процесс (1925)</a></li>
+<li><a href="https://ru.wikipedia.org/wiki/Мы_(роман)">Мы (1924)</a></li>
+<li><a href="https://ru.wikipedia.org/wiki/Мечтают_ли_андроиды_об_электроовцах?">Мечтают ли андроиды об электроовцах? (1968)</a></li>
+<li>Око небесное (1957)</li>
+<li><a href="https://ru.wikipedia.org/wiki/Убик">Убик (1969)</a></li>
+<li>Лабиринт смерти (1970)</li>
+<li>Три стигмата Палмера Элдрича (1964)</li>
+<li><a href="https://en.wikipedia.org/wiki/VALIS">ВАЛИС (1981)</a></li>
+<li><a href="https://ru.wikipedia.org/wiki/Помутнение">Помутнение (1977)</a></li>
+<li><a href="https://ru.wikipedia.org/wiki/Команда_корректировки">Команда корректировки (1954)</a></li>
+<li><a href="https://ru.wikipedia.org/wiki/Мы_вам_всё_припомним">Мы вам всё припомним (1966)</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Radio_Free_Albemuth">Свободное радио Албемута (1976)</a></li>
 </ul>
 <h3 id="всем">Всем</h3>
 <ul>
-<li>Степной волк</li>
-<li>Сидхартха</li>
-<li>1984</li>
-<li>О дивный новый мир</li>
-<li>Маятник Фуко</li>
-<li>Невыносимая лёгкость бытия</li>
-<li>Циники</li>
-<li>Волшебник Земноморья</li>
+<li><a href="https://ru.wikipedia.org/wiki/Степной_волк_(роман)">Степной волк (1927)</a></li>
+<li><a href="https://ru.wikipedia.org/wiki/Сиддхартха_(роман)">Сидхартха (1922)</a></li>
+<li><a href="https://ru.wikipedia.org/wiki/1984_(роман)">1984 (1948)</a></li>
+<li><a href="https://ru.wikipedia.org/wiki/О_дивный_новый_мир">О дивный новый мир (1932)</a></li>
+<li><a href="https://ru.wikipedia.org/wiki/Маятник_Фуко_(роман)">Маятник Фуко (1988)</a></li>
+<li><a href="https://ru.wikipedia.org/wiki/Невыносимая_лёгкость_бытия">Невыносимая лёгкость бытия (1984)</a></li>
+<li>Циники (1928)</li>
+<li><a href="https://ru.wikipedia.org/wiki/Волшебник_Земноморья">Волшебник Земноморья (1968)</a></li>
 </ul>]]></summary>
 </entry>
 <entry>
@@ -437,6 +687,15 @@ sumOurSpecialFixedList <span class="fu">=</span> sum</code></pre></div>
 </dd>
 </dl></li>
 <li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Шестиструнный_самурай">Шестиструнный самурай (1998)</a></dt>
+<dd>Длительность: 91 минут
+</dd>
+<dd>Не стоит смотреть: тем кому за державу обидно
+</dd>
+<dd>Что делать если денег катастрофически не хватает, есть только друзья музыканты, а кино снимать очень хочется? Ну, в России у вас может выйти мрачноватая история о бандитах, которая станет культовой, а вы — очень известным режисёром. А в Америке у вас выйдет задорный треш, вы провалитесь в прокате и по большому счёту не снимете больше ничего. Но зато какой выйдет треш! Это как экранизация Фолаута, только без футуризма, силовой брони, но зато с канибалами, солдатами Красной Армии и дуэлью со Смертью на гитарах.
+</dd>
+</dl></li>
+<li><dl>
 <dt><a href="https://ru.wikipedia.org/wiki/Весна,_лето,_осень,_зима…_и_снова_весна">Весна, лето, осень, зима… и снова весна (2003)</a></dt>
 <dd>При том что фильм на корейском, он отлично смотрится без перевода, что само по себе уже любопытно. И ничего не поделаешь, но это Ким Ки Дук.
 </dd>
@@ -479,10 +738,11 @@ sumOurSpecialFixedList <span class="fu">=</span> sum</code></pre></div>
 <li><a href="https://ru.wikipedia.org/wiki/Догвилль">Догвилль (2003)</a></li>
 <li><dl>
 <dt><a href="https://ru.wikipedia.org/wiki/Антихрист_(фильм,_2009)">Антихрист (2009)</a></dt>
+<dd>Не стоит смотреть: никому
+</dd>
 <dd>Это было очень тяжёлое и плохое путешествие. Теперь, когда мне говорят о Ларсе фон Триере я вспоминаю именно это. Но возможно я хочу этим с кем-то поделиться.
 </dd>
 </dl></li>
-<li><a href="https://ru.wikipedia.org/wiki/Шестиструнный_самурай">Шестиструнный самурай (1998)</a></li>
 <li><dl>
 <dt><a href="https://ru.wikipedia.org/wiki/Голод_(фильм,_1983)">Голод (1983)</a></dt>
 <dd>Длительность: 97 минут
@@ -516,7 +776,13 @@ sumOurSpecialFixedList <span class="fu">=</span> sum</code></pre></div>
 <li>Торжественное открытие храма наслаждений (1954)</li>
 <li>Трудно быть богом (2013)</li>
 <li>Жидкое небо (1983)</li>
-<li>Обед нагишом (1991)</li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Обед_нагишом_(фильм)">Обед нагишом (1991)</a></dt>
+<dd>Длительность: 115 мин
+</dd>
+<dd>Кроненберг
+</dd>
+</dl></li>
 <li>Вход в пустоту (2009)</li>
 <li>Помутнение (2006)</li>
 <li><a href="https://ru.wikipedia.org/wiki/Мертвец_(фильм)">Мертвец (1995)</a></li>
@@ -812,6 +1078,196 @@ sumOurSpecialFixedList <span class="fu">=</span> sum</code></pre></div>
 <dd>Длительность: 112 мин
 </dd>
 </dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Боже,_благослови_Америку_(фильм,_2011)">Боже, благослови Америку (2011)</a></dt>
+<dd>Длительность: 104 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Самый_лучший_папа">Самый лучший папа (2009)</a></dt>
+<dd>Длительность: 99 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Американский_психопат_(фильм)">Американский психопат (2000)</a></dt>
+<dd>Длительность: 102 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt>Oh My God! (2012)</dt>
+<dd>Длительность: 125 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Ведьма_(фильм,_2015)">Ведьма (2015)</a></dt>
+<dd>Длительность: 90 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Любовь_(фильм,_2015)">Любовь (2015)</a></dt>
+<dd>Длительность: 135 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Лобстер_(фильм)">Лобстер (2015)</a></dt>
+<dd>Длительность: 118 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Глаза_звезды">Глаза звезды (2014)</a></dt>
+<dd>Длительность: 98 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Гонгофер">Гонгофер (1992)</a></dt>
+<dd>Длительность: 98 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Судороги_(фильм)">Судороги (1975)</a></dt>
+<dd>Длительность: 87 мин
+</dd>
+<dd>Кроненберг
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Преступления_будущего">Преступления будущего (1970)</a></dt>
+<dd>Длительность: 70 мин
+</dd>
+<dd>Кроненберг
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Бешенство_(фильм)">Бешенство (1977)</a></dt>
+<dd>Длительность: 96 мин
+</dd>
+<dd>Кроненберг
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Выводок_(фильм)">Выводок (1979)</a></dt>
+<dd>Длительность: 92 мин
+</dd>
+<dd>Кроненберг
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Опасный_метод">Опасный метод (2011)</a></dt>
+<dd>Длительность: 99 мин
+</dd>
+<dd>Кроненберг
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Высотка">Высотка (2015)</a></dt>
+<dd>Длительность: 119 мин
+</dd>
+<dd>экранизация Балларда
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Связанные_насмерть">Связанные насмерть (1988)</a></dt>
+<dd>Длительность: 115 мин
+</dd>
+<dd>Кроненберг
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Муха_(фильм,_1986)">Муха (1986)</a></dt>
+<dd>Длительность: 100 мин
+</dd>
+<dd>Кроненберг
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Муха_(фильм,_1958)">Муха (1958)</a></dt>
+<dd>Длительность: 94 мин
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Видеодром">Видеодром (1983)</a></dt>
+<dd>Длительность: 90 мин
+</dd>
+<dd>Кроненберг
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Сканнеры">Сканнеры (1981)</a></dt>
+<dd>Длительность: 103 мин
+</dd>
+<dd>Кроненберг
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Экзистенция_(фильм)">Экзистенция (1999)</a></dt>
+<dd>Длительность: 97 мин
+</dd>
+<dd>Кроненберг
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Автокатастрофа_(фильм)">Автокатастрофа (1996)</a></dt>
+<dd>Длительность: 100 мин
+</dd>
+<dd>Кроненберг
+</dd>
+<dd>экранизация Балларда
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Космополис_(фильм)">Космополис (2012)</a></dt>
+<dd>Кроненберг
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Бразилия_(фильм)">Бразилия (1985)</a></dt>
+<dd>Длительность: 142 мин
+</dd>
+<dd>Терри Гиллиам
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Бандиты_времени">Бандиты времени (1981)</a></dt>
+<dd>Длительность: 116 мин
+</dd>
+<dd>Терри Гиллиам
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Бармаглот_(фильм)">Бармаглот (1977)</a></dt>
+<dd>Длительность: 105 мин
+</dd>
+<dd>Терри Гиллиам
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Теорема_Зеро">Теорема Зеро (2013)</a></dt>
+<dd>Длительность: 107 мин
+</dd>
+<dd>Терри Гиллиам
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Король-рыбак_(фильм)">Король-рыбак (1991)</a></dt>
+<dd>Длительность: 137 мин
+</dd>
+<dd>Терри Гиллиам
+</dd>
+</dl></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/Приключения_барона_Мюнхгаузена_(фильм)">Приключения барона Мюнхгаузена (1988)</a></dt>
+<dd>Длительность: 127 мин
+</dd>
+<dd>Терри Гиллиам
+</dd>
+</dl></li>
+<li><a href="https://ru.wikipedia.org/wiki/Отряд_самоубийц_(фильм,_2016)">Отряд самоубийц (2016)</a></li>
+<li><dl>
+<dt><a href="https://ru.wikipedia.org/wiki/1984_(фильм,_1984)">1984 (1984)</a></dt>
+<dd>Длительность: 113 мин
+</dd>
+</dl></li>
+<li><a href="https://ru.wikipedia.org/wiki/Свободное_радио_Альбемута_(фильм)">Свободное радио Альбемута (2010)</a></li>
 </ul>]]></summary>
 </entry>
 <entry>

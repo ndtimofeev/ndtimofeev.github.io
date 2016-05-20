@@ -8,8 +8,47 @@
         <name>Nikita Timofeev</name>
         <email>ndtimofeev@gmail.com</email>
     </author>
-    <updated>2015-12-27T00:00:00Z</updated>
+    <updated>2016-01-29T00:00:00Z</updated>
     <entry>
+    <title>Полуэмпирические формулы</title>
+    <link href="https://ndtimofeev.github.io/ru/posts/2016-01-29-halfempirical.html" />
+    <id>https://ndtimofeev.github.io/ru/posts/2016-01-29-halfempirical.html</id>
+    <published>2016-01-29T00:00:00Z</published>
+    <updated>2016-01-29T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>Полуэмпирические формулы могут содержать три оротогональных компонента: заряды фрагментов, функциональные группы и плейсхолдеры.</p>
+<pre><code>quantifier    = nat &gt; 1
+
+signum        = &#39;+&#39; | &#39;-&#39;
+
+charge        = &#39;(&#39; &#39;+&#39; + &#39;)&#39; | &#39;(&#39; &#39;-&#39; + &#39;)&#39; | &#39;(&#39; quantifier signum &#39;)&#39; | &#39;(&#39; signum quantifier &#39;)&#39;
+
+isotope       = &#39;[&#39; nat atom &#39;]&#39; | &#39;[&#39; atom &#39;]&#39;
+
+placeholder   = &#39;[&#39; [A..z][a..z]* `notElem` element table &#39;]&#39;
+
+              | &#39;[&#39; [A..z][a..z0..9]* &#39;]&#39;
+
+atom          = [A..Z][a..z]{0,2} `elem` element table
+
+linker        = &#39;-&#39; | &#39;=&#39; | &#39;#&#39;
+
+halfempirical = linker{0,1} node linker{0,1} rest*
+
+rest          = node linker{0,1}
+
+unchargednode = isotope quantifier{0,1}
+
+              | atom quantifier{0,1}
+
+              | &#39;(&#39; linker{0,1} unchargednode  &#39;)&#39; quantifier{0,1}
+
+node          = isotope charge{0,1} quantifier{0,1}
+
+              | atom charge{0,1} quantifier{0,1}
+
+              | &#39;(&#39; halfempirical &#39;)&#39; charge{0,1} quantifier{0,1}</code></pre>]]></summary>
+</entry>
+<entry>
     <title>Список реакци которые мне доводилось ставить</title>
     <link href="https://ndtimofeev.github.io/ru/posts/2015-12-27-reaction-list.html" />
     <id>https://ndtimofeev.github.io/ru/posts/2015-12-27-reaction-list.html</id>
@@ -37,6 +76,7 @@
 <li>Получение сложных эфиров прямой этерификацией</li>
 <li>Ацилирование по Фриделю-Крафтцу</li>
 <li>Получение алкенов дегидратированием спиртов</li>
+<li>Реакция Мицунобу</li>
 </ol>]]></summary>
 </entry>
 

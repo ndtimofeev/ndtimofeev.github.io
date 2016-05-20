@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>All you need is love and little bit of LSD - Поиск устройств на шине 1-wire</title>
+        <link rel="stylesheet" type="text/css" href="../../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../../css/syntax.css" />
+        <link rel="alternate" type="application/atom+xml" title="Atom" href="../../atom.xml">
+    </head>
+    <body>
+        <div id="container">
+            <div id="header">
+                <div id="logo">
+                    <a href="../../">All you need is love and a little bit of LSD</a>
+                </div>
+                <div id="navigation">
+                    <a href="../../ru/about.html">About</a>
+                    <a href="../../archive.html">Archive</a>
+                </div>
+            </div>
+
+            <div id="content">
+                <h1>Поиск устройств на шине 1-wire</h1>
+                <div class="info">
+    
+        Posted on February 20, 2016 with tags: <a href="../../ru/tags/rust.html">rust</a>.
+    
+</div>
+
+
+<p>Поиск устройств на шине 1-wire считается делом не простым и замысловатым. Причиной этого является 64-битный размер идентификатора (на самом деле 8-бит это CRC, но в данном случае это не играет роли) и опросить все возможные идентификаторы на предмет их присутствия на шине за вменяемое время не представляется возможным.</p>
+<div class="sourceCode"><pre class="sourceCode rust"><code class="sourceCode rust"><span class="co">// Пишем функции — затычки для взаимодействия с несуществующей у нас переферией.</span>
+<span class="kw">fn</span> one_wire_reset(){}
+<span class="kw">fn</span> is_presance() -&gt; <span class="dt">bool</span> { <span class="cn">true</span> }
+<span class="kw">fn</span> one_wire_write( c: <span class="dt">u8</span> ){}
+<span class="kw">fn</span> read_bit() -&gt; <span class="dt">u8</span> { <span class="dv">1</span> }
+<span class="kw">fn</span> read_unbit() -&gt; <span class="dt">u8</span> { <span class="dv">0</span> }
+
+<span class="kw">struct</span> SearchState {
+    last_device_flag: <span class="dt">u8</span>,
+    last_discrepancy: <span class="dt">u8</span>,
+    search_direction: <span class="dt">u8</span>,
+    rom_no: <span class="dt">u64</span>
+}
+
+<span class="kw">enum</span> SearchResult {
+    NotFound,
+    Rom( <span class="dt">u64</span> )
+}
+
+<span class="kw">fn</span> search_rom( state: &amp;<span class="kw">mut</span> SearchState ) -&gt; SearchResult
+{
+    <span class="kw">let</span> <span class="kw">mut</span> last_zero: <span class="dt">u8</span> = <span class="dv">0</span>;
+    <span class="kw">let</span> <span class="kw">mut</span> result        = SearchResult::NotFound;
+
+<span class="co">// Сбрасываем шину.</span>
+    one_wire_reset();
+
+    <span class="kw">if</span> is_presance() &amp;&amp; state.last_device_flag != <span class="dv">1</span>
+    {
+
+<span class="co">// Запускаем процесс поиска.</span>
+        one_wire_write( <span class="dv">0x0F</span> );
+
+        <span class="kw">for</span> id_bit_number <span class="kw">in</span> <span class="dv">1.</span>.<span class="dv">64</span> {
+            <span class="kw">let</span> id_bit     = read_bit();
+            <span class="kw">let</span> cmp_id_bit = read_unbit();
+
+            <span class="kw">if</span> id_bit == <span class="dv">1</span> &amp;&amp; cmp_id_bit == <span class="dv">1</span>
+            {
+                <span class="kw">break</span>;
+            }
+
+            state.search_direction =
+                <span class="kw">match</span> id_bit_number {
+                    _ <span class="kw">if</span> id_bit != cmp_id_bit                    =&gt; id_bit,
+                    _ <span class="kw">if</span> id_bit_number == state.last_discrepancy =&gt; <span class="dv">1</span>,
+                    _ <span class="kw">if</span> id_bit_number &gt; state.last_discrepancy  =&gt; <span class="dv">0</span>,
+                    _                                            =&gt;
+                        <span class="kw">if</span> state.rom_no &amp; (<span class="dv">1</span> &lt;&lt; id_bit_number <span class="kw">as</span> <span class="dt">u64</span>) == <span class="dv">0</span> { <span class="dv">0</span> } <span class="kw">else</span> { <span class="dv">1</span> }
+                };
+
+            <span class="kw">if</span> state.search_direction == <span class="dv">0</span>
+            {
+                last_zero = id_bit_number;
+                state.rom_no &amp;= !( <span class="dv">1</span> &lt;&lt; id_bit_number <span class="kw">as</span> <span class="dt">u64</span> );
+            }
+            <span class="kw">else</span>
+            {
+                state.rom_no |= <span class="dv">1</span> &lt;&lt; id_bit_number <span class="kw">as</span> <span class="dt">u64</span>;
+            }
+
+<span class="co">// Отправляем устройствам бит выбранного направления обхода.</span>
+            one_wire_write( state.search_direction );
+
+            <span class="kw">if</span> id_bit_number == <span class="dv">64</span>
+            {
+                result = SearchResult::Rom( state.rom_no );
+            }
+        }
+    }
+
+    <span class="kw">match</span> result {
+        SearchResult::Rom( _ ) =&gt;
+        {
+            state.last_discrepancy = last_zero;
+
+            <span class="kw">if</span> state.last_discrepancy == <span class="dv">0</span> { state.last_device_flag = <span class="dv">1</span> }
+        }
+        SearchResult::NotFound =&gt;
+        {
+            state.last_discrepancy = <span class="dv">0</span>;
+            state.last_device_flag = <span class="dv">0</span>;
+        }
+    }
+
+    <span class="kw">return</span> result;
+}
+
+<span class="kw">fn</span> main()
+{
+<span class="co">// Создаём начальный стейт нашего поиска.</span>
+    <span class="kw">let</span> <span class="kw">mut</span> state =
+                SearchState {
+                    last_device_flag: <span class="dv">0</span>,
+                    last_discrepancy: <span class="dv">0</span>,
+                    search_direction: <span class="dv">0</span>,
+                    rom_no: <span class="dv">0</span>
+                };
+
+<span class="co">// Ищем устройства до тех пор пока они находятся.</span>
+    <span class="kw">loop</span> {
+        <span class="kw">match</span> search_rom( &amp;<span class="kw">mut</span> state ) {
+            SearchResult::Rom( w ) =&gt; <span class="pp">println!</span>( <span class="st">&quot;{}&quot;</span>, w ),
+            SearchResult::NotFound =&gt; <span class="kw">break</span>
+        }
+    }
+}</code></pre></div>
+
+            </div>
+            <div id="footer-push"></div>
+        </div>
+        <div id="footer-menu">
+            
+                
+                        <a href="../../ru/posts/2016-02-20-1-wire-search.xml">Subscribe to post updates</a>
+                
+                        <a href="../../ru/posts/2016-02-20-1-wire-search.disqus.html">To disqus</a>
+                
+            
+        </div>
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+    </body>
+</html>
