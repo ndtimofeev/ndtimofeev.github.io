@@ -24,11 +24,12 @@
                 <h1>О том как избежать успеха и как не избежать успеха…</h1>
                 <div class="info">
     
-        Posted on May 20, 2016 with tags: <a href="../../ru/tags/Haskell.html">Haskell</a>.
+        Posted on May 20, 2016 with tags: <a href="../../ru/tags/haskell.html">haskell</a>.
     
 </div>
 
 
+<h2 id="успех-сам-себя-не-избежит">Успех сам себя не избежит</h2>
 <p>При всём богатстве возможностей в Haskell регулярно возникают проблемы с вещами, которые кажутся совершенно элементарными. Например получить стек вызовов в случае ошибки. Причём не то что бы его нельзя получить совсем, наоборот есть как минимум два ортогональных способа, но всё это сопряжено с таким количеством сложностей и условий, что проще воткнуть в нужные места printf’ы или густо обмазываться препроцессором. Особенно грустно дело с этим обстояло в ghci.</p>
 <p>И вот для пользователей ghci наступает <a href="http://simonmar.github.io/posts/2016-02-12-Stack-traces-in-GHCi.html">революция</a>. Казалось бы страдания остались в прошлом, а <code>error</code> и <code>undefined</code> обрели практическое применение. Однако первая же попытка использовать это в массиве написанного кода обернулась неудачей: <code>error</code> и <code>undefined</code> выдавали стек вызовов, а броски исключения — нет. Сначала я подозревал себя в том, что куда-то не включил профилировочную информацию или как-то не так использую ImplicitParams, но потом я просто полез в код.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    <span class="co">-- ./libraries/base/GHC/Err.hs:77</span>
@@ -78,6 +79,57 @@
     pattern <span class="dt">SomeException</span><span class="ot"> ::</span> () <span class="ot">=&gt;</span> <span class="dt">Exception</span> e <span class="ot">=&gt;</span> e <span class="ot">-&gt;</span> <span class="dt">SomeException</span>
     pattern <span class="dt">SomeException</span> err <span class="ot">&lt;-</span> <span class="dt">SomeExceptionWithLocation</span> _ err <span class="kw">where</span>
       <span class="dt">SomeException</span> err <span class="fu">=</span> <span class="dt">SomeExceptionWithLocation</span> <span class="st">&quot;&quot;</span> err</code></pre></div>
+<h2 id="работать-вокруг">Работать вокруг</h2>
+<p>Разобраться с тем почему ничего не работает хорошо, но было бы ещё лучше понять что нужно сделать чтобы оно заработало. В данном случае ответ простой: модифицировать стандартную библиотеку так, чтобы <code>SomeException</code> таскал за собой информацию о стеке вызовов[^1]. Однако, увы, у меня такой возможности нет. Можно вместо <code>SomeException</code> модифицировать типы исключений, которые выбрасываются в коде. Тогда придётся ещё и написать функцию, которая будет заполнять новый тип нужными данными. Также будем исходить из соображения, что нам лениво явным образом включать информацию о стеке вызовов в каждый тип исключение и мы напишем обёртку для всех исключений сразу.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="ot">{-# LANGUAGE GADTs #-}</span>
+<span class="fu">&gt;</span> <span class="ot">{-# LANGUAGE ImplicitParams #-}</span>
+
+<span class="fu">&gt;</span> <span class="kw">import </span><span class="dt">Control.Exception</span>
+<span class="fu">&gt;</span> <span class="kw">import </span><span class="dt">Data.Typeable</span>
+<span class="fu">&gt;</span> <span class="kw">import </span><span class="dt">GHC.Stack</span>
+<span class="fu">&gt;</span> <span class="kw">import </span><span class="dt">System.IO.Unsafe</span>
+
+<span class="fu">&gt;</span> <span class="kw">data</span> <span class="dt">CallStackException</span> <span class="kw">where</span>
+<span class="fu">&gt;</span>     <span class="dt">CallStackException</span><span class="ot"> ::</span> <span class="dt">Exception</span> e <span class="ot">=&gt;</span> e <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">CallStackException</span>
+
+<span class="fu">&gt;</span> <span class="kw">instance</span> <span class="dt">Exception</span> <span class="dt">CallStackException</span></code></pre></div>
+<p>Пока похоже на правду.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span> <span class="kw">instance</span> <span class="dt">Show</span> <span class="dt">CallStackException</span> <span class="kw">where</span>
+<span class="fu">&gt;</span>     show (<span class="dt">CallStackException</span> e <span class="st">&quot;&quot;</span>)    <span class="fu">=</span> show e
+<span class="fu">&gt;</span>     show (<span class="dt">CallStackException</span> e stack) <span class="fu">=</span> show e <span class="fu">++</span> <span class="st">&quot;\n&quot;</span> <span class="fu">++</span> stack</code></pre></div>
+<p>Наша обёртка не несёт никакого смысла для получателя исключения, так что показывать нам особо нечего. Если исключение прилетело без стек-трейса показываем только вложенное исключение. Если вместе со стек-трейсом то вложенное исключение и стек-трейс на следующей строке. Теперь нам нужен аналог <code>throwIO</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span><span class="ot"> throwIO' ::</span> (<span class="dt">HasCallStack</span>, <span class="dt">Exception</span> e) <span class="ot">=&gt;</span> e <span class="ot">-&gt;</span> <span class="dt">IO</span> a
+<span class="fu">&gt;</span> throwIO' e <span class="fu">=</span> <span class="kw">do</span>
+<span class="fu">&gt;</span>     stack <span class="ot">&lt;-</span> currentCallStack
+<span class="fu">&gt;</span>     throwIO <span class="fu">$</span> <span class="dt">CallStackException</span> e <span class="fu">$</span> <span class="kw">if</span> stack <span class="fu">/=</span> []
+<span class="fu">&gt;</span>         <span class="kw">then</span> prettyCallStack <span class="fu">?</span>callStack <span class="fu">++</span> <span class="st">&quot;\n&quot;</span> <span class="fu">++</span> renderStack stack
+<span class="fu">&gt;</span>         <span class="kw">else</span> prettyCallStack <span class="fu">?</span>callStack</code></pre></div>
+<p>Вычитываем текущий стек вызовов профилировщика, выбрасываем наружу исключение в обёртке со стеком состоящем из <code>ImplicitParams</code>-стека и стека профилировщика, если он не пустой. Ничего интересного. Давайте для красоты добавим:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span><span class="ot"> throw' ::</span> (<span class="dt">HasCallStack</span>, <span class="dt">Exception</span> e) <span class="ot">=&gt;</span> e <span class="ot">-&gt;</span> a
+<span class="fu">&gt;</span> throw' <span class="fu">=</span> unsafeDupablePerformIO <span class="fu">.</span> throwIO'</code></pre></div>
+<p>Теперь можно бросить произвольное исключение и оно будет снабжено стеком вызовов. В принципе это уже весьма неплохо, поскольку в 80% случаев если обработка исключений и осуществляется, то на уровне <code>onException</code>. <code>bracket</code> и прочего <code>finaly</code>. Но положем мы всё же хотим ловить исключения по типу. У нас ничего не выйдет, поскольку в <code>SomeException</code> завёрнуто исключение не того типа который мы ловим, а типа-обёртки. Можно решить эту проблему двумя способами. Во-первых можно почитать документацию в <code>Control.Exception</code> и перегрузить <code>toException</code> и <code>fromException</code> для интересующих нас типов исключений таким образом чтобы он учитывал наличие обёртки. Но это придётся делать для каждого типа-исключения. Во-вторых мы можем написать свой волшебный <code>catch</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">&gt;</span><span class="ot"> exceptionLoop ::</span> (<span class="dt">Exception</span> a, <span class="dt">Exception</span> e) <span class="ot">=&gt;</span> e <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> <span class="dt">IO</span> b) <span class="ot">-&gt;</span> <span class="dt">IO</span> b <span class="ot">-&gt;</span> <span class="dt">IO</span> b
+<span class="fu">&gt;</span> exceptionLoop ex f abort
+<span class="fu">&gt;</span>     <span class="fu">|</span> <span class="dt">Just</span> (<span class="dt">SomeException</span> inner)        <span class="ot">&lt;-</span> cast ex <span class="fu">=</span> exceptionLoop inner f abort
+<span class="fu">&gt;</span>     <span class="fu">|</span> <span class="dt">Just</span> (<span class="dt">CallStackException</span> inner _) <span class="ot">&lt;-</span> cast ex <span class="fu">=</span> exceptionLoop inner f abort
+<span class="fu">&gt;</span>     <span class="fu">|</span> <span class="dt">Just</span> v                            <span class="ot">&lt;-</span> cast ex <span class="fu">=</span> f v
+<span class="fu">&gt;</span>     <span class="fu">|</span> otherwise                                    <span class="fu">=</span> abort
+
+<span class="fu">&gt;</span><span class="ot"> catch' ::</span> <span class="dt">Exception</span> e <span class="ot">=&gt;</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> (e <span class="ot">-&gt;</span> <span class="dt">IO</span> a) <span class="ot">-&gt;</span> <span class="dt">IO</span> a
+<span class="fu">&gt;</span> catch' eval f <span class="fu">=</span> catch eval <span class="fu">$</span>
+<span class="fu">&gt;</span>      \err<span class="fu">@</span>(<span class="dt">SomeException</span> top) <span class="ot">-&gt;</span> exceptionLoop top f (throwIO err)</code></pre></div>
+<p>Ловим все исключения и пытаемся их привести либо к тому типу который ждёт наш обработчик, либо к типам обёрткам. Если нашли обёртку, спускаемся уровнем ниже, если нашли нужный тип — обрабатываем, если не нашли ничего перебрасываем ровно то что получили с сохранением стека. Всё. Мы победили.</p>
+<p>Радость правда омрачает то, что у нас есть свои собственные особые функции для того чтобы бросать и ловить исключения и нужно модифицировать весь существующий код. Конечно если он с самого начала был написан с помощью пакета <a href="http://hackage.haskell.org/package/exceptions"><code>exceptions</code></a>, который вводит классы позволяющие перегрузить <code>throwIO</code> и <code>catch</code> для произвольной монады то ситуация выглядит существенно лучше, но модифицировать код для того чтобы его было проще отлаживать всё равно придётся. Кроме того, останутся вызовы <code>throw</code> в коде, который нами не управляется (например в стандартной библиотеке ввода-вывода). Это фейл.</p>
+<h2 id="проблемы">Проблемы</h2>
+<p>Теперь, когда всем стало ясно, что во всём виноваты мейнтейнеры стандартной библиотеки стоит отметить пару проблем, которые так просто не решить.</p>
+<ul>
+<li><p>Нарушение ссылочной прозрачности. Рассмотрим вот такой код:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">eval <span class="ot">`catch`</span> (\ex<span class="fu">@</span>(<span class="dt">T</span> v) <span class="ot">-&gt;</span> <span class="kw">if</span> pred v
+    <span class="kw">then</span> makeGood
+    <span class="kw">else</span> throwIO ex)</code></pre></div>
+<p>Нам кажется что в ветке <code>else</code> мы ничего не делаем, просто перебрасываем исключение, которое получили незаметно для кода выше по стеку. На самом деле мы только что обрезали стек вызовов до глубины <code>catch</code>. Конечно можно решить что всё ок и так нам и надо, но это не отменяет того что мы имеем малоочевидный побочный эффект.</p></li>
+<li><p>А ещё есть асинхронные исключения, для которых вся эта ерунда вообще не применима. Ну то есть в <code>throwTo</code> безусловно можно вычитать текущий стек-трейс, но какой он имеет смысл для процесса в который исключение бросается? Можно опять же решить что всё ок и для асинхронного исключения стек вызовов не так уж и важен, но если кто-то из обработчиков этого исключения перебросит его как в предыдущем примере то в итоге мы получим стек вызовов означающий примерно ничего.</p></li>
+</ul>
 
 
 <div id="disqus_thread"></div>
